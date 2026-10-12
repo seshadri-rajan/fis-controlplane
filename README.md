@@ -12,6 +12,9 @@ control plane.
 > For design: [High Level Design](docs/architecture/hld.md) ·
 > [Low Level Design](docs/architecture/lld.md) ·
 > [User Flows](docs/architecture/user-flows.md).
+>
+> To see it running: [GIF walkthrough](docs/demo/README.md) ·
+> [Screenshots](docs/screenshots/README.md).
 
 ---
 

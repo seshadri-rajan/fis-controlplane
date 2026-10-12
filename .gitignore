@@ -13,6 +13,14 @@ htmlcov/
 *.db
 *.sqlite3
 
+# Intermediate frames from the demo recorder; the GIF itself is committed
+docs/demo/frames/
+
+# Browser binaries a stray `playwright install` can drop in the working directory.
+# The real install lives in %LOCALAPPDATA%\ms-playwright.
+chrome/
+chrome-headless-shell/
+
 # Node
 node_modules/
 dist/

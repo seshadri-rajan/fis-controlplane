@@ -7,6 +7,8 @@
 | [architecture/hld.md](architecture/hld.md) | High Level Design: context, components, scheduling integration, security, deployment, decisions needed | Client and team |
 | [architecture/lld.md](architecture/lld.md) | Low Level Design: data model, rule engine, API surface, state machines, configuration | Developers |
 | [architecture/user-flows.md](architecture/user-flows.md) | Journeys with diagrams, and the questions each one raises | Client walkthrough |
+| [screenshots/](screenshots/README.md) | Ten annotated UI screenshots of every implemented screen | Sharing and review |
+| [demo/](demo/README.md) | Annotated GIF walkthrough of the UI, and the script that records it | Sharing and review |
 
 Each marks items as built, planned or blocked, so a reviewer can tell implemented behaviour from
 intended behaviour.
