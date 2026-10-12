@@ -198,6 +198,7 @@ Carried from document review; not yet actioned in the source documents.
 | O-31 | **Surfaced during implementation.** When a calendar selects a weekend day (e.g. Saturday only) and that day is a holiday, does the run shift to the next non-weekend working day (currently Monday), or to the next *selected* day (the following Saturday)? Related to O-06 but distinct. | TBD | Open |
 | O-32 | `POST /api/ui/preview` and `GET /api/ui/preview/rules` are **deliberately unauthenticated**: both are pure computation over request-supplied input and expose no stored data. Confirm this is acceptable, or close it when rate limiting lands. | TBD | Open — confirm |
 | O-33 | Session secret management. An unset `CALENDAR_SESSION_SECRET` falls back to a per-process key, so sessions break across restarts and replicas. Must be set from Secrets Manager before deployment. | TBD | Open |
+| O-34 | **Found during screenshot capture.** A shifted run that cannot be placed inside the requested year is now **dropped**. Confirm this is the wanted behaviour, rather than deferring the run into the following year. See 12.4. | TBD | Open — confirm |
 
 ---
 
@@ -393,7 +394,6 @@ selected it. Resolved by treating a selected weekday as a working day for its ow
 the holiday case remains open — see O-31.
 
 ### 12.3 The no-self-approval constraint caught a real defect
-
 The database constraint `ck_change_request_no_self_approval` rejected an insert during
 development: with the approval gate off, the service was recording the maker as their own
 approver.
@@ -405,3 +405,39 @@ not.
 Corrected so that in direct-apply mode the request is `APPROVED` with `checker` left **null** — a
 truthful record that no second pair of eyes was involved. Worth noting that the control that
 caught this was a database constraint, not a test.
+
+### 12.4 Shifted runs were escaping the requested year (O-34)
+
+Found while producing UI screenshots. Generating **2027** for a Monday-to-Friday calendar under
+`shift_again` returned three dates in **January 2028**:
+
+| Generated date | Shifted from | Reason |
+|---|---|---|
+| 2028-01-03 | 2027-01-01 | New Year |
+| 2028-01-04 | 2027-12-24 | Christmas Eve |
+| 2028-01-05 | 2027-12-27 | Christmas observed |
+
+Every weekday in 2027 was already taken, so the search ran past the year end and placed the runs
+in the next year.
+
+**Why it mattered.** Those rows would have been written during 2027 materialisation and then
+collided with the `UNIQUE (calendar_key, calendar_date)` constraint the next time 2028 was
+generated — breaking the idempotency of the annual rollover, which Fidelity runs unattended after
+handover.
+
+**Fixed:** `generate_year` now returns only dates inside the requested year. The year is the unit
+of materialisation, so a run that cannot be placed inside it is dropped rather than silently
+written into the next one.
+
+**Consequence for O-06, and it settles the question.** On a Monday-to-Friday calendar there is no
+free weekday to move a run onto, so *every* collision policy produces the same calendar:
+
+| Collision policy | Run days, 2027, one holiday |
+|---|---:|
+| merge | 260 |
+| shift_again | 260 |
+
+**A holiday on a Mon–Fri calendar always costs a run.** The only ways to preserve it would be to
+run on a weekend or to run in the following year. The question put to the client should therefore
+be narrowed: *is losing the run acceptable, or must these calendars be allowed to run on a
+non-business day?* There is no third option.

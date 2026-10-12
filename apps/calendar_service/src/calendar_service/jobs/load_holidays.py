@@ -24,7 +24,8 @@ from ..infra.database.session import get_session_factory
 
 def read_csv(path: Path) -> list[tuple[date, str]]:
     rows: list[tuple[date, str]] = []
-    with path.open(newline="", encoding="utf-8") as handle:
+    # utf-8-sig: Excel and PowerShell write a BOM that would otherwise drop the first row.
+    with path.open(newline="", encoding="utf-8-sig") as handle:
         for record in csv.reader(handle):
             if not record or not record[0].strip():
                 continue

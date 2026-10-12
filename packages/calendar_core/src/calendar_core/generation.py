@@ -23,11 +23,15 @@ def generate_year(
     resolved = coerce(holidays)
 
     if spec.business_days is not None:
-        return generate_business_days(spec.business_days, year, resolved, spec.policies)
+        generated = generate_business_days(spec.business_days, year, resolved, spec.policies)
+    else:
+        assert spec.extended_rule is not None  # guaranteed by CalendarSpec.__post_init__
+        evaluator = get_evaluator(spec.extended_rule.rule_name)
+        generated = evaluator(spec.extended_rule, year, resolved, spec.policies)
 
-    assert spec.extended_rule is not None  # guaranteed by CalendarSpec.__post_init__
-    evaluator = get_evaluator(spec.extended_rule.rule_name)
-    return evaluator(spec.extended_rule, year, resolved, spec.policies)
+    # A shift can push a run past 31 December. The year is the unit of materialisation, so a run
+    # that cannot be placed inside it is dropped rather than written into the next year (O-34).
+    return [g for g in generated if g.day.year == year]
 
 
 def generate_years(

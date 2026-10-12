@@ -7,11 +7,14 @@ import pytest
 from calendar_core import (
     BusinessDaySpec,
     CalendarSpec,
+    CollisionPolicy,
     ExtendedRuleSpec,
     Holiday,
     HolidayPolicy,
     HolidaySet,
+    Policies,
     Weekday,
+    generate_year,
     generate_years,
 )
 from calendar_core.rules.holiday import (
@@ -94,3 +97,49 @@ def test_generate_years_spans_the_year_boundary():
     years = {g.day.year for g in result}
     assert years == {2026, 2027}
     assert [g.day for g in result] == sorted(g.day for g in result)
+
+
+def test_o34_a_shift_never_escapes_the_requested_year():
+    """A dense weekday calendar has nowhere to put a shifted run, so it must be dropped.
+
+    Before this was enforced, generating 2027 emitted dates in January 2028, which would have
+    been written during 2027 materialisation and then collided on the next run.
+    """
+    weekdays = BusinessDaySpec(
+        frozenset(
+            {Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY, Weekday.THURSDAY, Weekday.FRIDAY}
+        )
+    )
+    spec = CalendarSpec(
+        "mon-fri",
+        business_days=weekdays,
+        policies=Policies(collision=CollisionPolicy.SHIFT_AGAIN),
+    )
+    result = generate_year(spec, 2027, [Holiday(date(2027, 12, 31), "Year end")])
+
+    assert all(g.day.year == 2027 for g in result)
+
+
+def test_o34_a_dense_calendar_loses_a_run_to_a_holiday_whatever_the_policy():
+    """Finding for O-06: on Mon-Fri there is no free weekday to move a run to."""
+    weekdays = BusinessDaySpec(
+        frozenset(
+            {Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY, Weekday.THURSDAY, Weekday.FRIDAY}
+        )
+    )
+    holidays = [Holiday(date(2027, 1, 1), "New Year")]
+
+    totals = {
+        policy: len(
+            generate_year(
+                CalendarSpec(
+                    "mon-fri", business_days=weekdays, policies=Policies(collision=policy)
+                ),
+                2027,
+                holidays,
+            )
+        )
+        for policy in CollisionPolicy
+    }
+
+    assert totals[CollisionPolicy.MERGE] == totals[CollisionPolicy.SHIFT_AGAIN] == 260
