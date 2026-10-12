@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local databases
+*.db
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local AI tooling installed per-machine, not part of this project
+.agents/
+skills-lock.json
+
+# Client requirement documents. Excluded by default because repository visibility
+# is unconfirmed; the decisions taken from them are captured in RECORD.md.
+# To include them, delete these two lines and `git add` the files.
+*.docx

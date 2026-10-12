@@ -1,0 +1,41 @@
+[project]
+name = "fidelity-calendar-platform"
+version = "0.1.0"
+description = "AutoSys-compatible calendar utility for Apache Airflow, and Airflow metadata control plane"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+    "apps/calendar_service",
+    "apps/control_plane",
+    "packages/calendar_core",
+    "packages/airflow_calendar_plugin",
+]
+
+[tool.uv.sources]
+calendar-core = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "TID"]
+
+# Enforces the clean-architecture dependency rule and the plugin isolation rule from README.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"calendar_service.api".msg = "domain/ must not import from api/ (see README: dependency direction)"
+"calendar_service.infra".msg = "domain/ must not import from infra/ (see README: dependency direction)"
+
+[tool.pytest.ini_options]
+testpaths = ["apps", "packages"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
