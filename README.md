@@ -187,6 +187,17 @@ Holidays are backend-managed by requirement, so they load from CSV rather than t
 .\.venv\Scripts\python.exe -m calendar_service.jobs.load_holidays holidays.csv --calendar DEFAULT
 ```
 
+### Populate the UI with something to look at
+
+There is no calendar editor yet (blocked on S-13), so a fresh database leaves the Calendars page
+empty. This creates four representative calendars plus US 2027 holidays, and is safe to re-run:
+
+```powershell
+.\.venv\Scripts\python.exe -m calendar_service.jobs.seed_demo
+```
+
+2028 is left unmaterialised on purpose so the date-cliff warning is visible.
+
 ### Annual rollover and the date-cliff alert
 
 Calendar dates are materialised per year. A calendar that runs out of dates **stops scheduling

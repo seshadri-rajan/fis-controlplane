@@ -16,7 +16,7 @@ Companion documents: [RECORD.md](RECORD.md) for decisions, risks and open items 
 |---|---|---|---|
 | Decision record | Maintained | — | — |
 | Repo structure | Done | — | — |
-| `calendar_core` rule engine | Done, rules provisional | 47 | O-28 for the real rule set |
+| `calendar_core` rule engine | Done, rules provisional | 49 | O-28 for the real rule set |
 | Calendar Service — preview | Done | 13 | — |
 | Calendar Service — schema + CRUD | Done | 18 | — |
 | Calendar Service — auth, RBAC, audit | Done | 16 | — |
@@ -28,9 +28,10 @@ Companion documents: [RECORD.md](RECORD.md) for decisions, risks and open items 
 | `control_plane` | Scaffolding only | — | **O-13** |
 | Migration tooling | Not started | — | **O-28** |
 | Infra / CI | Not started | — | O-05, O-25 |
+| Docs: HLD, LLD, user flows, screenshots, demo GIF | Done | — | — |
 | Handover artefacts | Runbooks outstanding | — | — |
 
-Total automated tests: **103 passing**.
+Total automated tests: **105 passing**. Repository pushed to `origin/main`.
 
 ---
 
@@ -42,6 +43,8 @@ Total automated tests: **103 passing**.
 - [x] `.gitignore`, `.env.example`
 - [x] OpenAPI contract exported to `docs/api/openapi.json`
 - [x] HLD, LLD and user-flow documents under `docs/architecture/`
+- [x] Ten annotated UI screenshots under `docs/screenshots/`
+- [x] Nine-frame GIF walkthrough and its recorder under `docs/demo/`
 - [ ] CI pipeline running tests, lint and the frontend build
 - [ ] Pre-commit hooks
 
@@ -72,6 +75,7 @@ Total automated tests: **103 passing**.
 - [x] Calendar CRUD (`/api/ui/calendars`), soft delete
 - [x] Date materialisation into `calendar_date`
 - [x] Holiday loading CLI (`jobs/load_holidays`), backend only as required
+- [x] Demo data seeder (`jobs/seed_demo`) — a fresh database has no calendars and no UI editor yet
 - [x] Extended rule seeding from the engine registry; swap to Fidelity's list when it arrives (D-09)
 - [!] `/api/v1` scheduling endpoint — contract shape depends on **O-09 / D-06**
 - [x] Audit trail writes, with before and after values, plus a history endpoint
