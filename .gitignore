@@ -49,9 +49,10 @@ Thumbs.db
 
 # Local AI tooling installed per-machine, not part of this project
 .agents/
+.agents.zip
 skills-lock.json
 
-# Client requirement documents. Excluded by default because repository visibility
-# is unconfirmed; the decisions taken from them are captured in RECORD.md.
-# To include them, delete these two lines and `git add` the files.
+# Client requirement documents. Source documents under req-details/ are versioned on purpose;
+# stray .docx elsewhere in the tree are not.
 *.docx
+!req-details/**/*.docx

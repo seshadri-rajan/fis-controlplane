@@ -8,6 +8,10 @@ Companion documents: [RECORD.md](RECORD.md) for decisions, risks and open items 
 
 **Legend** — `[x]` done · `[~]` in progress · `[!]` blocked · `[ ]` not started
 
+> **Requirements v2 landed 2026-10-14.** The rule engine's input model and most of the calendar UI
+> are superseded — see [RECORD.md section 13](RECORD.md#13-requirements-v2-delta-2026-10-14).
+> States below still describe what is built against v1 and have not yet been re-planned.
+
 ---
 
 ## At a glance
@@ -201,6 +205,9 @@ O-06 can now be settled by demonstrating the preview rather than discussing pros
 ---
 
 ## Next up
+
+**Re-plan against requirements v2 first** — RECORD.md section 13. The items below were ordered
+against v1 and need revisiting.
 
 1. Annual rollover and API key rotation runbooks — the scripts exist, the documentation does not
 2. Structured logging and rate limiting
