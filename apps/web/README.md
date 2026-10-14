@@ -13,8 +13,7 @@ authentication" — from an accepted risk into a non-issue, for roughly zero ext
 ```
 src/
 ├── features/              Vertical slices. Most work happens here.
-│   ├── calendars/         List, detail, editor, approval queue
-│   ├── preview/           Calendar date preview on a month grid
+│   ├── calendars/         Create, list, detail, month grid
 │   ├── dag-runs/          Control plane view
 │   └── auth/              Login, password change
 ├── components/ui/         shadcn/ui primitives. Generated, rarely hand-edited.
@@ -34,17 +33,18 @@ hand-maintained types will drift, and drift here means a UI that silently sends 
 
 ## Build order
 
-The first screen worth building is **preview**, not CRUD.
+The create screen is a **preview that can be saved**, which is why it was built before any
+editing flow. You define a calendar, watch the generated dates appear on a month grid, and only
+then choose to create it. The same screen that settles how a rule should behave is the one that
+commits it.
 
-Pick a calendar or rule, see the generated dates rendered on a month grid with holidays and shifts
-highlighted. It demos well, it is the feature users will rely on daily, and it makes the
-undecided rule semantics (O-06, O-07) visible — a stakeholder looks at August, sees the 15th
-shifted to the 16th, and rules on it in seconds.
+Previewing stays available without an account (O-32); only saving requires the Create role.
 
-**Do not build mutation screens until the approval model is settled** (RECORD.md section 11).
-Four-eyes reshapes every editing flow: "Submit" becomes "Submit for approval", plus a diff view, a
-pending queue and a reviewer screen. Read-only screens — preview, list, detail — are safe to build
-now.
+**Editing an existing calendar is still blocked on S-13.** Creating is safe because the outcome
+is unambiguous either way: the API returns `201` when the change applies immediately, or `202`
+with a pending change request when the four-eyes gate is on (D-10), and the screen reports both.
+Editing needs a diff view, a pending queue and a reviewer screen, none of which can be designed
+until the client confirms what an approval actually approves.
 
 ## Stack
 

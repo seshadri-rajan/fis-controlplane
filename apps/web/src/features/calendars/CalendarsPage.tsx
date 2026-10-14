@@ -7,7 +7,7 @@ import {
   listCalendars,
 } from "../../lib/api/client";
 import type { CalendarRead } from "../../lib/api/client";
-import MonthGrid, { Legend } from "../preview/MonthGrid";
+import MonthGrid, { Legend } from "./MonthGrid";
 
 const WEEKDAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const YEARS = [2026, 2027, 2028];

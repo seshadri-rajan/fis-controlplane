@@ -25,6 +25,7 @@ chrome-headless-shell/
 node_modules/
 dist/
 .vite/
+*.tsbuildinfo
 *.local
 
 # Environment and secrets

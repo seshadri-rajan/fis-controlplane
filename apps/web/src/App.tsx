@@ -4,7 +4,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router";
 import { useAuth } from "./features/auth/AuthProvider";
 import LoginPage from "./features/auth/LoginPage";
 import CalendarsPage from "./features/calendars/CalendarsPage";
-import PreviewPage from "./features/preview/PreviewPage";
+import CreateCalendarPage from "./features/calendars/CreateCalendarPage";
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-md px-3 py-1.5 text-sm font-medium ${
@@ -45,11 +45,11 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-3">
           <span className="font-semibold">Calendar Platform</span>
           <nav className="flex gap-1">
-            <NavLink to="/preview" className={linkClass}>
-              Preview
-            </NavLink>
             <NavLink to="/calendars" className={linkClass}>
               Calendars
+            </NavLink>
+            <NavLink to="/create" className={linkClass}>
+              Create
             </NavLink>
           </nav>
           <UserBadge />
@@ -58,8 +58,10 @@ export default function App() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Routes>
-          <Route path="/" element={<Navigate to="/preview" replace />} />
-          <Route path="/preview" element={<PreviewPage />} />
+          <Route path="/" element={<Navigate to="/calendars" replace />} />
+          <Route path="/create" element={<CreateCalendarPage />} />
+          {/* Older links and the screenshots point at /preview. */}
+          <Route path="/preview" element={<Navigate to="/create" replace />} />
           <Route
             path="/calendars"
             element={

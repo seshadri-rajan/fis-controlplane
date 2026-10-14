@@ -12,9 +12,11 @@ export type BoundaryPolicy = components["schemas"]["BoundaryPolicy"];
 export type CurrentUserRead = components["schemas"]["CurrentUserRead"];
 export type LoginRequest = components["schemas"]["LoginRequest"];
 export type CalendarRead = components["schemas"]["CalendarRead"];
+export type CalendarWrite = components["schemas"]["CalendarWrite"];
 export type CalendarDateRead = components["schemas"]["CalendarDateRead"];
 export type AuditEntryRead = components["schemas"]["AuditEntryRead"];
 export type ChangeRequestRead = components["schemas"]["ChangeRequestRead"];
+export type MutationResult = components["schemas"]["MutationResult"];
 
 export class ApiError extends Error {
   constructor(
@@ -96,6 +98,11 @@ export async function fetchMe(): Promise<CurrentUserRead | null> {
 
 export function listCalendars(includeInactive = false): Promise<CalendarRead[]> {
   return request<CalendarRead[]>(`/api/ui/calendars?include_inactive=${includeInactive}`);
+}
+
+/** 201 applies immediately; 202 raises a change request. Tell them apart via `applied`. */
+export function createCalendar(body: CalendarWrite): Promise<MutationResult> {
+  return request<MutationResult>("/api/ui/calendars", json(body));
 }
 
 export function fetchCalendarDates(key: number, year: number): Promise<CalendarDateRead[]> {

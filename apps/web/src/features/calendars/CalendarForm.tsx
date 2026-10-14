@@ -9,6 +9,8 @@ import type {
 export type CalendarKind = "business_days" | "extended_rule";
 
 export type FormState = {
+  name: string;
+  description: string;
   kind: CalendarKind;
   year: number;
   weekdays: Weekday[];
@@ -57,6 +59,32 @@ export default function CalendarForm({
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div>
+        <label className={label} htmlFor="calendarName">
+          Calendar name
+        </label>
+        <input
+          id="calendarName"
+          className={field}
+          placeholder="US_Business_Days"
+          value={state.name}
+          onChange={(e) => set("name", e.target.value)}
+        />
+      </div>
+
+      <div>
+        <label className={label} htmlFor="calendarDesc">
+          Description
+        </label>
+        <input
+          id="calendarDesc"
+          className={field}
+          placeholder="Optional"
+          value={state.description}
+          onChange={(e) => set("description", e.target.value)}
+        />
+      </div>
+
       <div>
         <span className={label}>Calendar type</span>
         <div className="flex gap-2">
