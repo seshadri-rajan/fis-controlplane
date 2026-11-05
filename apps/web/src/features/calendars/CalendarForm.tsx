@@ -1,61 +1,48 @@
-import type {
-  BoundaryPolicy,
-  CollisionPolicy,
-  HolidayPolicy,
-  RuleSummary,
-  Weekday,
-} from "../../lib/api/client";
+import { DAY_NAMES } from "../../lib/api/proposed";
+import type { RuleDefinition } from "../../lib/api/proposed";
+import { CALENDAR_NAME, defaultParams, paramError } from "./calendarFormModel";
+import type { CalendarKind, FormState } from "./calendarFormModel";
+import { field, label } from "./formStyles";
+import HolidayCalendarSelect from "./HolidayCalendarSelect";
 
-export type CalendarKind = "business_days" | "extended_rule";
+const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-export type FormState = {
-  name: string;
-  description: string;
-  kind: CalendarKind;
-  year: number;
-  weekdays: Weekday[];
-  ruleName: string;
-  ruleDay: number;
-  holiday: HolidayPolicy;
-  collision: CollisionPolicy;
-  boundary: BoundaryPolicy;
-  holidaysText: string;
-};
-
-const WEEKDAY_LABELS: Array<[Weekday, string]> = [
-  [0, "Mon"],
-  [1, "Tue"],
-  [2, "Wed"],
-  [3, "Thu"],
-  [4, "Fri"],
-  [5, "Sat"],
-  [6, "Sun"],
-];
-
-const field = "w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm";
-const label = "block text-xs font-medium text-slate-600 mb-1";
+const FREQUENCY_LABEL = { MONTHLY: "Monthly", QUARTERLY: "Quarterly", YEARLY: "Yearly" };
 
 export default function CalendarForm({
   state,
   rules,
+  rule,
+  params,
   onChange,
 }: {
   state: FormState;
-  rules: RuleSummary[];
+  rules: RuleDefinition[];
+  /** The rule in effect: the user's pick, or the first catalog entry until they choose. */
+  rule: RuleDefinition | undefined;
+  /** Parameter values in effect: the user's edits over the rule's defaults. */
+  params: Record<string, string>;
   onChange: (next: FormState) => void;
 }) {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     onChange({ ...state, [key]: value });
 
-  const toggleWeekday = (day: Weekday) =>
+  const toggleWeekday = (index: number) =>
     set(
       "weekdays",
-      state.weekdays.includes(day)
-        ? state.weekdays.filter((d) => d !== day)
-        : [...state.weekdays, day].sort((a, b) => a - b),
+      state.weekdays.includes(index)
+        ? state.weekdays.filter((d) => d !== index)
+        : [...state.weekdays, index].sort((a, b) => a - b),
     );
 
-  const selectedRule = rules.find((r) => r.rule_name === state.ruleName);
+  const selectRule = (ruleType: string) =>
+    onChange({ ...state, ruleType, params: defaultParams(rules.find((r) => r.ruleType === ruleType)) });
+
+  // Pin the rule in effect too, so an edit made before choosing one is not lost to a later default.
+  const setParam = (name: string, value: string) =>
+    onChange({ ...state, ruleType: rule?.ruleType ?? "", params: { ...params, [name]: value } });
+
+  const nameInvalid = state.name !== "" && !CALENDAR_NAME.test(state.name.trim());
 
   return (
     <div className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
@@ -70,19 +57,11 @@ export default function CalendarForm({
           value={state.name}
           onChange={(e) => set("name", e.target.value)}
         />
-      </div>
-
-      <div>
-        <label className={label} htmlFor="calendarDesc">
-          Description
-        </label>
-        <input
-          id="calendarDesc"
-          className={field}
-          placeholder="Optional"
-          value={state.description}
-          onChange={(e) => set("description", e.target.value)}
-        />
+        {nameInvalid && (
+          <p className="mt-1 text-xs text-rose-700">
+            Start with a letter or digit; use only letters, digits, “_” and “-”.
+          </p>
+        )}
       </div>
 
       <div>
@@ -92,6 +71,7 @@ export default function CalendarForm({
             <button
               key={kind}
               type="button"
+              aria-pressed={state.kind === kind}
               onClick={() => set("kind", kind)}
               className={`rounded-md px-3 py-1.5 text-sm ${
                 state.kind === kind
@@ -103,22 +83,20 @@ export default function CalendarForm({
             </button>
           ))}
         </div>
-        <p className="mt-1 text-xs text-slate-500">
-          Mutually exclusive, enforced by the engine rather than only the UI.
-        </p>
       </div>
 
       {state.kind === "business_days" ? (
         <div>
           <span className={label}>Business days</span>
           <div className="flex flex-wrap gap-1">
-            {WEEKDAY_LABELS.map(([day, text]) => (
+            {WEEKDAY_LABELS.map((text, index) => (
               <button
-                key={day}
+                key={DAY_NAMES[index]}
                 type="button"
-                onClick={() => toggleWeekday(day)}
+                aria-pressed={state.weekdays.includes(index)}
+                onClick={() => toggleWeekday(index)}
                 className={`rounded-md px-2.5 py-1 text-xs ${
-                  state.weekdays.includes(day)
+                  state.weekdays.includes(index)
                     ? "bg-emerald-600 text-white"
                     : "border border-slate-300 text-slate-600"
                 }`}
@@ -137,36 +115,53 @@ export default function CalendarForm({
             <select
               id="rule"
               className={field}
-              value={state.ruleName}
-              onChange={(e) => set("ruleName", e.target.value)}
+              value={rule?.ruleType ?? ""}
+              onChange={(e) => selectRule(e.target.value)}
             >
-              {rules.map((rule) => (
-                <option key={rule.rule_name} value={rule.rule_name}>
-                  {rule.rule_name}
+              {rules.length === 0 && <option value="">Loading…</option>}
+              {rules.map((item) => (
+                <option key={item.ruleType} value={item.ruleType}>
+                  {item.ruleType} · {FREQUENCY_LABEL[item.frequency]}
                 </option>
               ))}
             </select>
-            {selectedRule && (
-              <p className="mt-1 text-xs text-slate-500">{selectedRule.description}</p>
-            )}
+            {rule && <p className="mt-1 text-xs text-slate-500">{rule.description}</p>}
           </div>
 
-          {state.ruleName === "DAY_OF_MONTH" && (
-            <div>
-              <label className={label} htmlFor="ruleDay">
-                Day of month
-              </label>
-              <input
-                id="ruleDay"
-                type="number"
-                min={1}
-                max={31}
-                className={field}
-                value={state.ruleDay}
-                onChange={(e) => set("ruleDay", Number(e.target.value))}
-              />
-            </div>
-          )}
+          {rule?.parameters.map((parameter) => {
+            const id = `param-${parameter.name}`;
+            const problem = paramError(parameter, params[parameter.name]);
+            return (
+              <div key={parameter.name}>
+                <label className={label} htmlFor={id}>
+                  {parameter.label}
+                </label>
+                {parameter.type === "ENUM" ? (
+                  <select
+                    id={id}
+                    className={field}
+                    value={params[parameter.name] ?? ""}
+                    onChange={(e) => setParam(parameter.name, e.target.value)}
+                  >
+                    {parameter.options.map((option) => (
+                      <option key={option}>{option}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={id}
+                    type="number"
+                    min={parameter.min}
+                    max={parameter.max}
+                    className={field}
+                    value={params[parameter.name] ?? ""}
+                    onChange={(e) => setParam(parameter.name, e.target.value)}
+                  />
+                )}
+                {problem && <p className="mt-1 text-xs text-rose-700">{problem}</p>}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -185,85 +180,43 @@ export default function CalendarForm({
         />
       </div>
 
-      <fieldset className="space-y-2 rounded-md bg-slate-50 p-3">
-        <legend className="px-1 text-xs font-semibold text-slate-600">
-          Unresolved semantics
-        </legend>
-
-        <div>
-          <label className={label} htmlFor="holidayPolicy">
-            On a holiday
-          </label>
-          <select
-            id="holidayPolicy"
-            className={field}
-            value={state.holiday}
-            onChange={(e) => set("holiday", e.target.value as HolidayPolicy)}
-          >
-            <option value="shift_forward">Shift forward</option>
-            <option value="shift_backward">Shift backward</option>
-            <option value="skip">Skip the run</option>
-          </select>
-        </div>
-
-        <div>
-          <label className={label} htmlFor="collisionPolicy">
-            O-06 — shifted onto an existing run
-          </label>
-          <select
-            id="collisionPolicy"
-            className={field}
-            value={state.collision}
-            onChange={(e) => set("collision", e.target.value as CollisionPolicy)}
-          >
-            <option value="merge">Merge into one run</option>
-            <option value="shift_again">Shift again, keep both</option>
-          </select>
-        </div>
-
-        <div>
-          <label className={label} htmlFor="boundaryPolicy">
-            O-07 — shift leaves the period
-          </label>
-          <select
-            id="boundaryPolicy"
-            className={field}
-            value={state.boundary}
-            onChange={(e) => set("boundary", e.target.value as BoundaryPolicy)}
-          >
-            <option value="clamp">Clamp inside the month</option>
-            <option value="allow_overflow">Allow overflow</option>
-          </select>
-        </div>
-      </fieldset>
-
-      <div>
-        <label className={label} htmlFor="holidays">
-          Holidays — one per line, <code>YYYY-MM-DD[, name]</code>
-        </label>
-        <textarea
-          id="holidays"
-          rows={5}
-          className={`${field} font-mono text-xs`}
-          value={state.holidaysText}
-          onChange={(e) => set("holidaysText", e.target.value)}
+      <div className="space-y-2 rounded-md bg-slate-50 p-3">
+        <HolidayCalendarSelect
+          id="holidayCalendar"
+          value={state.holidayCalendar}
+          onChange={(name) => set("holidayCalendar", name)}
         />
-        <p className="mt-1 text-xs text-slate-500">
-          Supplied per request; the preview is stateless and needs no database.
-        </p>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={state.holidayRun}
+            onChange={(e) => set("holidayRun", e.target.checked)}
+          />
+          Take holidays into account
+        </label>
+
+        {state.holidayRun && (
+          <div>
+            <label className={label} htmlFor="holidayOffset">
+              When a run falls on a holiday, move it by (days)
+            </label>
+            <input
+              id="holidayOffset"
+              type="number"
+              className={field}
+              value={state.holidayOffset}
+              onChange={(e) =>
+                set("holidayOffset", e.target.value === "" ? 0 : Math.trunc(Number(e.target.value)))
+              }
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              −1 moves it back a day, +1 forward; 0 skips the run. Working-day rules already skip
+              holidays when counting.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
-}
-
-export function parseHolidays(text: string): Array<{ day: string; name: string }> {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [day, ...rest] = line.split(",");
-      return { day: day.trim(), name: rest.join(",").trim() };
-    })
-    .filter((h) => /^\d{4}-\d{2}-\d{2}$/.test(h.day));
 }

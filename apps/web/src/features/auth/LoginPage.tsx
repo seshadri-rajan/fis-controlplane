@@ -21,7 +21,7 @@ export default function LoginPage() {
       await signIn(userName, password);
     } catch (cause) {
       setError(
-        cause instanceof ApiError && cause.status === 423
+        cause instanceof ApiError && cause.status === 403
           ? cause.message
           : "Invalid credentials.",
       );
@@ -33,12 +33,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-sm">
       <form onSubmit={submit} className="space-y-4 rounded-lg border border-slate-200 bg-white p-6">
-        <div>
-          <h1 className="text-lg font-semibold">Sign in</h1>
-          <p className="mt-1 text-xs text-slate-500">
-            Local account. Single sign-on is out of scope for this phase.
-          </p>
-        </div>
+        <h1 className="text-lg font-semibold">Sign in</h1>
 
         <div>
           <label className={label} htmlFor="user">

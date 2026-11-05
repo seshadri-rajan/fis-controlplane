@@ -1,11 +1,11 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { fetchMe, login as loginRequest, logout as logoutRequest } from "../../lib/api/client";
-import type { CurrentUserRead } from "../../lib/api/client";
+import { restoreSession, login as loginRequest, logout as logoutRequest } from "../../lib/api/client";
+import type { AuthUser } from "../../lib/api/client";
 
 type AuthValue = {
-  user: CurrentUserRead | null;
+  user: AuthUser | null;
   isLoading: boolean;
   signIn: (userName: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,13 +19,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const { data, isLoading } = useQuery({
     queryKey: ["me"],
-    queryFn: fetchMe,
+    queryFn: restoreSession,
     retry: false,
   });
 
   const signIn = useMutation({
     mutationFn: ({ userName, password }: { userName: string; password: string }) =>
-      loginRequest({ user_name: userName, password }),
+      loginRequest(userName, password),
     onSuccess: (user) => queryClient.setQueryData(["me"], user),
   });
 

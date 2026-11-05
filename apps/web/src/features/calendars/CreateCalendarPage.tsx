@@ -1,140 +1,127 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 
-import { createCalendar, fetchPreview, listRules } from "../../lib/api/client";
-import type {
-  ApiError,
-  CalendarWrite,
-  MutationResult,
-  PreviewRequest,
-} from "../../lib/api/client";
+import { createSpecCalendar, listRuleCatalog, previewCalendar } from "../../lib/api/client";
+import type { ApiError, SpecCalendar } from "../../lib/api/client";
 import { useAuth } from "../auth/AuthProvider";
-import CalendarForm, { parseHolidays } from "./CalendarForm";
-import type { FormState } from "./CalendarForm";
+import CalendarForm from "./CalendarForm";
+import {
+  CALENDAR_NAME,
+  INITIAL,
+  createRequestOf,
+  defaultParams,
+  paramError,
+  previewRequestOf,
+} from "./calendarFormModel";
+import type { FormState } from "./calendarFormModel";
 import MonthGrid, { Legend } from "./MonthGrid";
-
-const INITIAL: FormState = {
-  name: "",
-  description: "",
-  kind: "business_days",
-  year: 2027,
-  weekdays: [0, 1, 2, 3, 4],
-  ruleName: "LAST_BUSINESS_DAY",
-  ruleDay: 15,
-  holiday: "shift_forward",
-  collision: "merge",
-  boundary: "clamp",
-  holidaysText: "2027-01-01, New Year\n2027-12-24, Christmas Eve\n2027-12-27, Christmas observed",
-};
-
-function policiesOf(state: FormState) {
-  return { holiday: state.holiday, collision: state.collision, boundary: state.boundary };
-}
-
-function ruleParams(state: FormState): Record<string, number> {
-  return state.ruleName === "DAY_OF_MONTH" ? { day: state.ruleDay } : {};
-}
-
-function toRequest(state: FormState): PreviewRequest {
-  return {
-    name: state.name.trim() || "preview",
-    year: state.year,
-    business_days: state.kind === "business_days" ? state.weekdays : null,
-    extended_rule:
-      state.kind === "extended_rule"
-        ? { rule_name: state.ruleName, params: ruleParams(state) }
-        : null,
-    policies: policiesOf(state),
-    holidays: parseHolidays(state.holidaysText),
-  };
-}
-
-function toCalendarWrite(state: FormState): CalendarWrite {
-  return {
-    calendar_nm: state.name.trim(),
-    calendar_desc: state.description.trim() || null,
-    weekdays: state.kind === "business_days" ? state.weekdays : null,
-    rule_name: state.kind === "extended_rule" ? state.ruleName : null,
-    rule_params: state.kind === "extended_rule" ? ruleParams(state) : {},
-    policies: policiesOf(state),
-    // Left null on purpose: a saved calendar resolves holidays from the managed holiday
-    // calendar, not from the list typed into this form.
-    holiday_calendar_id: null,
-    bu_id: null,
-    app_id: null,
-  };
-}
+import UploadCalendarPanel from "./UploadCalendarPanel";
 
 export default function CreateCalendarPage() {
+  const [mode, setMode] = useState<"rules" | "upload">("rules");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Create a calendar</h1>
+        <div role="group" aria-label="Creation method" className="flex gap-1 rounded-lg bg-slate-200 p-1">
+          {(
+            [
+              ["rules", "Define by rules"],
+              ["upload", "Upload file"],
+            ] as const
+          ).map(([value, text]) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={mode === value}
+              onClick={() => setMode(value)}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+                mode === value ? "bg-white shadow-sm" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {text}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === "rules" ? <RuleBasedCreate /> : <UploadCalendarPanel />}
+    </div>
+  );
+}
+
+function RuleBasedCreate() {
   const [state, setState] = useState<FormState>(INITIAL);
-  const [result, setResult] = useState<MutationResult | null>(null);
+  const [saved, setSaved] = useState<SpecCalendar | null>(null);
   const { user, has } = useAuth();
   const queryClient = useQueryClient();
 
-  const rules = useQuery({ queryKey: ["rules"], queryFn: listRules });
+  const catalog = useQuery({ queryKey: ["rule-catalog"], queryFn: listRuleCatalog });
+  const rule = catalog.data?.find((r) => r.ruleType === state.ruleType) ?? catalog.data?.[0];
+  const params = { ...defaultParams(rule), ...state.params };
 
-  const request = useMemo(() => toRequest(state), [state]);
-  const enabled = state.kind === "extended_rule" || state.weekdays.length > 0;
+  const problems =
+    state.kind === "extended_rule"
+      ? (rule?.parameters ?? []).flatMap((p) => paramError(p, params[p.name]) ?? [])
+      : [];
+  const inputsReady =
+    state.kind === "business_days" ? state.weekdays.length > 0 : !!rule && problems.length === 0;
+  const yearValid = Number.isInteger(state.year) && state.year >= 2000 && state.year <= 2100;
+  const enabled = inputsReady && state.holidayCalendar !== "" && yearValid;
 
+  const request = previewRequestOf(state, rule, params);
   const preview = useQuery({
-    queryKey: ["preview", request],
-    queryFn: () => fetchPreview(request),
+    queryKey: ["calendar-preview", request],
+    queryFn: () => previewCalendar(request),
     enabled,
   });
 
   const save = useMutation({
-    mutationFn: () => createCalendar(toCalendarWrite(state)),
+    mutationFn: () => createSpecCalendar(createRequestOf(state, rule, params, preview.data!.dates)),
     onSuccess: (created) => {
-      setResult(created);
+      setSaved(created);
       queryClient.invalidateQueries({ queryKey: ["calendars"] });
     },
   });
 
-  const holidayNames = useMemo(
-    () => new Map(parseHolidays(state.holidaysText).map((h) => [h.day, h.name])),
-    [state.holidaysText],
-  );
+  const holidayNames = new Map((preview.data?.holidays ?? []).map((h) => [h.date, h.name]));
+  const gridDates = (preview.data?.dates ?? []).map((day) => ({
+    day,
+    reason: "",
+    shifted_from: null,
+  }));
 
-  const canCreate = has("CREATE");
-  const named = state.name.trim().length > 0;
-  const ready = canCreate && named && enabled && !preview.isError;
+  const canCreate = has("EDITOR");
+  const named = CALENDAR_NAME.test(state.name.trim());
+  const ready = canCreate && named && !!preview.data && !preview.isFetching && !saved;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Create a calendar</h1>
-        <p className="mt-1 max-w-3xl text-sm text-slate-600">
-          The grid previews the dates your definition generates. Nothing is saved until you create
-          it, so this doubles as a way to settle how a rule should behave before committing to it.
-        </p>
-      </div>
+      <p className="max-w-3xl text-sm text-slate-600">
+        Pick a rule and a holiday calendar to see the dates it generates. Nothing is saved until you
+        create it, and only the selected year is generated.
+      </p>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         <div className="space-y-3">
           <CalendarForm
             state={state}
-            rules={rules.data ?? []}
+            rules={catalog.data ?? []}
+            rule={rule}
+            params={params}
             onChange={(next) => {
               setState(next);
-              setResult(null);
+              setSaved(null);
               save.reset();
             }}
           />
 
           <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-4">
-            {!user && (
-              <p className="text-sm text-slate-600">
-                <Link to="/calendars" className="font-medium underline">
-                  Sign in
-                </Link>{" "}
-                to save this as a calendar. Previewing needs no account.
-              </p>
-            )}
-
             {user && !canCreate && (
               <p className="text-sm text-slate-600">
-                Your roles ({user.roles.join(", ")}) do not include Create, so this cannot be
+                Your roles ({user.roles.join(", ")}) do not include EDITOR, so this cannot be
                 saved.
               </p>
             )}
@@ -149,11 +136,13 @@ export default function CreateCalendarPage() {
                 >
                   {save.isPending ? "Creating…" : "Create calendar"}
                 </button>
-                {!named && <p className="text-xs text-slate-500">Give the calendar a name first.</p>}
-                <p className="text-xs text-slate-500">
-                  Holidays above apply to the preview only. A saved calendar resolves holidays
-                  from the managed holiday calendar.
-                </p>
+                {!named && (
+                  <p className="text-xs text-slate-500">
+                    {state.name.trim() === ""
+                      ? "Give the calendar a name first."
+                      : "Fix the calendar name first."}
+                  </p>
+                )}
               </>
             )}
 
@@ -165,36 +154,42 @@ export default function CreateCalendarPage() {
               </p>
             )}
 
-            {result && (
+            {saved && (
               <p className="rounded-md bg-emerald-50 p-2 text-sm text-emerald-900">
-                {result.applied ? (
-                  <>
-                    Created <strong>{result.applied.calendar_nm}</strong>, dates generated.{" "}
-                    <Link to="/calendars" className="underline">
-                      View calendars
-                    </Link>
-                  </>
-                ) : (
-                  <>
-                    Submitted for approval as change request #
-                    {result.change_request.change_request_id}. It takes effect once a second
-                    person approves it.
-                  </>
-                )}
+                Created <strong>{saved.calendarName}</strong> with {saved.dates?.length ?? 0} dates.{" "}
+                <Link to="/calendars" className="underline">
+                  View calendars
+                </Link>
               </p>
             )}
           </div>
         </div>
 
         <div className="space-y-4">
-          {!enabled && (
+          {state.kind === "business_days" && state.weekdays.length === 0 && (
             <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
               Select at least one business day.
             </p>
           )}
 
+          {problems.length > 0 && (
+            <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">{problems[0]}</p>
+          )}
+
+          {inputsReady && state.holidayCalendar === "" && (
+            <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-600">
+              Choose a holiday calendar to see the preview.
+            </p>
+          )}
+
+          {!yearValid && (
+            <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+              Year must be between 2000 and 2100.
+            </p>
+          )}
+
           {preview.isError && (
-            <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-800">
+            <p role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-800">
               {(preview.error as Error).message}
             </p>
           )}
@@ -202,19 +197,20 @@ export default function CreateCalendarPage() {
           {preview.data && (
             <>
               <div className="flex flex-wrap items-center gap-6 rounded-lg border border-slate-200 bg-white px-4 py-3">
-                <Stat label="Run days" value={preview.data.total} />
-                <Stat label="Shifted" value={preview.data.shifted_count} />
+                <Stat label="Run days" value={preview.data.dates.length} />
+                <Stat label="Holidays" value={preview.data.holidays.length} />
                 <Stat label="Year" value={preview.data.year} />
                 <div className="ml-auto">
-                  <Legend />
+                  <Legend
+                    items={[
+                      ["bg-emerald-500", "Scheduled run"],
+                      ["bg-rose-100 border border-rose-300", "Holiday"],
+                    ]}
+                  />
                 </div>
               </div>
 
-              <MonthGrid
-                year={preview.data.year}
-                dates={preview.data.dates}
-                holidays={holidayNames}
-              />
+              <MonthGrid year={preview.data.year} dates={gridDates} holidays={holidayNames} />
             </>
           )}
         </div>

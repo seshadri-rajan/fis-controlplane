@@ -1,4 +1,4 @@
-import type { PreviewDate } from "../../lib/api/client";
+export type GridDate = { day: string; shifted_from?: string | null; reason: string };
 
 const MONTHS = [
   "January",
@@ -25,7 +25,7 @@ export type DayInfo = {
   vacated: boolean;
 };
 
-export function indexDates(dates: PreviewDate[], holidays: Map<string, string>) {
+export function indexDates(dates: GridDate[], holidays: Map<string, string>) {
   const index = new Map<string, DayInfo>();
 
   for (const [iso, name] of holidays) {
@@ -133,7 +133,7 @@ export default function MonthGrid({
   holidays,
 }: {
   year: number;
-  dates: PreviewDate[];
+  dates: GridDate[];
   holidays: Map<string, string>;
 }) {
   const index = indexDates(dates, holidays);
@@ -147,13 +147,13 @@ export default function MonthGrid({
   );
 }
 
-export function Legend() {
-  const items: Array<[string, string]> = [
-    ["bg-emerald-500", "Scheduled run"],
-    ["bg-amber-400", "Shifted run"],
-    ["bg-rose-100 border border-rose-300", "Holiday / vacated"],
-  ];
+const DEFAULT_LEGEND: Array<[string, string]> = [
+  ["bg-emerald-500", "Scheduled run"],
+  ["bg-amber-400", "Shifted run"],
+  ["bg-rose-100 border border-rose-300", "Holiday / vacated"],
+];
 
+export function Legend({ items = DEFAULT_LEGEND }: { items?: Array<[string, string]> }) {
   return (
     <div className="flex flex-wrap gap-4 text-xs text-slate-600">
       {items.map(([swatch, label]) => (

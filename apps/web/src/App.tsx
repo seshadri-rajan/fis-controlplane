@@ -59,7 +59,14 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Routes>
           <Route path="/" element={<Navigate to="/calendars" replace />} />
-          <Route path="/create" element={<CreateCalendarPage />} />
+          <Route
+            path="/create"
+            element={
+              <RequireAuth>
+                <CreateCalendarPage />
+              </RequireAuth>
+            }
+          />
           {/* Older links and the screenshots point at /preview. */}
           <Route path="/preview" element={<Navigate to="/create" replace />} />
           <Route
