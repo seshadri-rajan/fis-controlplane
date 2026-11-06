@@ -1,6 +1,8 @@
 # Plan: date include/exclude toggle on the Upload-file preview
 
-Status: **Investigation complete, answers confirmed, awaiting go-ahead to implement.**
+Status: **Phase 1 ("New calendar" mode) implemented, tested, and shipped (2026-11-06).**
+**Phase 2 ("Upload dates" mode, Option B merge-by-default with provenance colours) implemented,
+tested, and shipped (2026-11-06).**
 
 > **Supersedes the previous version of this file** (toggle on the rule-based "Define by rules"
 > preview). After a 2026-11-06 call with the product team, the toggle is now wanted on the
@@ -14,6 +16,11 @@ Status: **Investigation complete, answers confirmed, awaiting go-ahead to implem
 > described here — CSV in, year-filtered read-only preview, save, calendar created with exactly
 > the file's dates — so this plan's "current behaviour" section is verified, not just inferred
 > from source.
+>
+> **2026-11-06, later the same day:** product asked for the identical toggle inside **"Upload
+> dates"** (the sub-mode that adds/replaces a year on an *existing* calendar) — previously called
+> out as explicitly out of scope for Phase 1. See **§ Phase 2** at the end of this file for the
+> investigation and plan for that extension; everything above describes Phase 1, which is done.
 
 ## Request
 
@@ -189,9 +196,191 @@ unchanged from today):
 
 - Applying the same toggle to the rule-based "Define by rules" preview (the original ask) — not
   part of this pivot unless asked for again.
-- Applying the toggle to "Upload dates" mode (uploading into an existing/migrated calendar) — the
-  confirmed scope is "New calendar" only; that sub-mode's grid and save path are untouched.
+- ~~Applying the toggle to "Upload dates" mode~~ — **now in scope, see § Phase 2 below**
+  (2026-11-06, later the same day).
 - Showing the grid before a file is chosen (pure manual creation with no CSV at all).
 - A separate "Added" stat/legend distinction for manually-included, non-file dates — they're
   visually and numerically folded into "Included"/"Selected" per the simplified two-state model
   product confirmed (§ Design decisions #4). Flag if this granularity turns out to be wanted later.
+
+---
+
+# Phase 2: extend the toggle to "Upload dates" mode
+
+Status: **Implemented and tested (2026-11-06).**
+
+## Request
+
+Add the same include/exclude toggle to `/create` → "Upload file" → **"Upload dates"** (the
+sub-mode that adds or replaces a year of dates on an existing/migrated calendar) — currently
+read-only, deliberately left out of Phase 1.
+
+## Investigation (browser-verified, 2026-11-06)
+
+I exercised the current "Upload dates" flow end to end against `Toggle-Test-Calendar` (a calendar
+holding 5 custom 2026 dates — 1, 5, 6, 7, 15 — from Phase 1 testing, including one date, the 15th,
+that only exists because a user manually added it, not because it was ever in any file):
+
+1. Selected it as the upload target, chose 2026, uploaded the same 5-date sample CSV (1, 2, 5, 6,
+   7). The pre-existing amber warning correctly read *"It already has 5 dates in 2026; the dates
+   in your file replace them."*
+2. The grid is confirmed **fully read-only today** — `0` clickable buttons found in the DOM,
+   identical plain `<div>` cells to before Phase 1, single "Date in the file" legend, no
+   Selected/Excluded/Reset UI. This confirms Phase 1's scope boundary held exactly as designed.
+3. Clicked "Upload to calendar". Result: **"Saved Toggle-Test-Calendar with 5 dates for 2026."**
+   Checking the Calendars page detail view confirmed the final dates are exactly **1, 2, 5, 6,
+   7** — the calendar's previous custom set (1, 5, 6, 7, **15**) was **silently and completely
+   overwritten** by the raw file, losing the manually-added 15th with no warning beyond the
+   generic amber notice.
+
+This last point is the important finding: **"Upload dates" is a full, blind replace of the
+selected year today.** This is exactly the gap a toggle here would fix — not just "let the user
+pick extra dates" (Phase 1's framing), but "let the user see and rescue what's about to be wiped."
+
+## Codebase findings specific to this mode
+
+- The data flow is nearly identical to "New calendar": same `parsed`/`yearDates`/`fileDates`
+  machinery, same `MonthGrid` component (extended below for the new provenance-colour states).
+- The target calendar's own current dates for the selected year aren't currently kept as a date
+  list, only a count (`existingInYear`) — need the actual array to build `existingDates`.
+- The save path's `otherYears` logic (preserving years outside the selected one) is untouched —
+  only the selected year's handling changes.
+- `included`'s seeding effect now needs the target calendar's dates too, so for "upload" mode it
+  must depend on `selected` (or `selectedName`) in addition to `[parsed, year]` — switching the
+  upload target is now a meaningful reseed trigger.
+
+## Design decision: CONFIRMED — Option B (merge by default)
+
+Product chose **Option B**: `included` seeds as the **union** of the target calendar's existing
+year-dates and the file's year-dates. Saving with no clicks is a **merge**, not a replace — this
+is a deliberate behaviour change from today's silent-overwrite default. Three further requirements
+came with the confirmation, all folded into the design below:
+
+1. A reset control that returns the selection to **the calendar's original dates for that year**
+   (not the file's dates, and not back to the union) — i.e. "discard this file's influence
+   entirely, keep the calendar as it already was."
+2. **Provenance markers that show where a day came from — the uploaded file, the existing
+   calendar, or both (an overlap) — immediately on load, not only once a date is excluded.**
+   Corrected from an earlier draft of this plan: since the union is included by default, amber
+   (existing-only) and violet (overlap) must be visible **the moment the file loads**, on cells
+   that are currently included, not held back until the user excludes something.
+
+### Provenance colour is primary; included/excluded is a secondary treatment on top of it
+
+Rather than "green = included, grey = excluded" with provenance only surfacing once excluded, the
+colour always reflects **where the day came from**, and whether it's currently selected is shown
+by *how* that colour renders (solid/filled vs muted/struck-through):
+
+For a given day, let `inFile = fileDates.has(iso)` and `inExisting = existingDates.has(iso)` (both
+false unless `mode === "upload"` — "New calendar" has no `existingDates`, so every day is either
+`inFile` or neither, and the table collapses to Phase 1's original two states: solid emerald when
+included, muted grey-strikethrough when excluded).
+
+| Origin | Included (in `included`) | Excluded (not in `included`) |
+|---|---|---|
+| Overlap — `inFile && inExisting` | solid **violet** | muted violet, struck-through |
+| Existing-only — `inExisting && !inFile` | solid **amber** | muted amber, struck-through |
+| File-only — `inFile && !inExisting` | solid **emerald** (today's look) | muted grey, struck-through (today's look) |
+| Neither (manually added beyond file/calendar) | solid **emerald** | n/a — not in `included` and no origin just means an untouched, unclicked day (plain/blank, as today) |
+
+Title text follows the same split, e.g. for an included overlap day: *"In the file and already on
+the calendar — included (click to exclude)"*; for an excluded existing-only day: *"On the
+calendar, not in the file — will be removed (click to keep)"*.
+
+**Legend** for "upload" mode: three colour swatches — **From file** (emerald), **On calendar
+only** (amber), **In both** (violet) — plus one line of text noting *"struck-through = excluded"*,
+rather than six separate swatches for every included/excluded combination. "New calendar" mode
+keeps its existing two-swatch legend (Included, Excluded) unchanged, since `existingDates` is
+always empty there.
+
+### Reset control
+
+Two distinct reset semantics now exist, so the button's target and label are mode-aware (same
+button, same position, same color scheme as "Create calendar" from the earlier styling request):
+
+- **"New calendar" mode** (unchanged from Phase 1): label "Reset exclusions", resets `included` to
+  `new Set(fileDates)`, disabled when already there.
+- **"Upload dates" mode** (new): label **"Reset to calendar's current dates"**, resets `included`
+  to `new Set(existingDates)` — i.e. discards the file's influence entirely and keeps the
+  calendar exactly as it already is for that year. Disabled when `included` already equals
+  `existingDates`.
+
+## Implementation steps
+
+1. **`MonthGrid.tsx`**: generalize the toggle-mode styling so colour encodes provenance
+   (file / existing / both) and included/excluded is a secondary solid-vs-muted treatment, per the
+   table above.
+   - Replace the single `fileDates`-only meaning with two explicit provenance sets:
+     `fileDates: Set<string>` (unchanged name/purpose) and a new optional
+     `existingDates?: Set<string>` (defaults to empty, so "New calendar" callers need no changes).
+   - Rewrite `toggleCellClass`/`toggleTitleFor` to take `(isIncluded, inFile, inExisting)`, resolve
+     the origin first (overlap / existing-only / file-only / neither), then apply the
+     solid-vs-muted treatment based on `isIncluded`, per the table above.
+   - No prop renames needed beyond adding `existingDates` — `included`/`onToggleDate` stay as-is.
+2. **`UploadCalendarPanel.tsx`**:
+   - Compute `existingYearDates = (selected?.dates ?? []).filter(d => d.startsWith(`${year}-`))`
+     and `existingDates = useMemo(() => new Set(existingYearDates), [existingYearDates])`.
+   - Update the `included` seeding effect: for `mode === "upload"`, initialize to the union of
+     `yearDates` and `existingYearDates`; for `mode === "new"`, unchanged (file dates only). Effect
+     dependencies become `[parsed, year, mode, selected]` (re-seeds if the user picks a different
+     upload target).
+   - Gate the toggle props to `(mode === "new" || mode === "upload") && !saved`; pass
+     `existingDates` only for `mode === "upload"` (omit/empty for "new", preserving Phase 1 exactly).
+   - Stats row for "upload" mode: **Dates in file**, **Selected**, **Excluded**, and **On
+     calendar** (`existingYearDates.filter(d => !included.has(d)).length` — the "will be removed"
+     count, covering both the overlap and on-calendar-only excluded cells), **Year**.
+   - Reset button: mode-aware label and target as described above —
+     `onClick={() => setIncluded(new Set(mode === "upload" ? existingDates : fileDates))}`,
+     `disabled={mode === "upload" ? isAtExistingDefault : isAtFileDefault}`, where
+     `isAtExistingDefault` is the `included`/`existingDates` set-equality check (parallel to the
+     existing `isAtFileDefault`).
+   - Reword the amber pre-upload warning for "upload" mode to reflect the merge default, e.g.:
+     *"It already has N dates in {year}. By default all of them are kept alongside the file's
+     dates — adjust the selection below if you want to drop any."* (only shown when
+     `existingInYear > 0`; keep the existing `existingOther` sentence about other years as-is).
+   - Change the "upload" branch of the save mutation from `csvFile([...otherYears,
+     ...yearDates].sort())` to `csvFile([...otherYears, ...included].sort())`.
+   - `fileReady`/`ready`: drop the mode branch — both modes require `fileValid && included.size >
+     0`. `showGrid` simplifies to `fileValid` for both modes.
+3. No changes to `calendarFormModel.ts`, `client.ts`, the spec types, or the mock handlers.
+
+## Verification plan
+
+- Repeat the investigation scenario (`Toggle-Test-Calendar`, existing dates 1/5/6/7/15, upload a
+  file with 1/2/5/6/7) and confirm the **default selection is the 6-date union** (1, 2, 5, 6, 7,
+  15) immediately on load, with **no clicks needed to see colour**: day 1 (overlap) solid violet,
+  day 15 (existing-only) solid amber, days 2/5/6/7 (file-only) solid emerald — all simultaneously,
+  right after the file is chosen.
+- Exclude day 1 (overlap) and confirm it switches to muted violet + strikethrough, title updates
+  to the "will be removed" / overlap wording.
+- Exclude day 15 (existing-only) and confirm it switches to muted amber + strikethrough.
+- Exclude day 2 (file-only) and confirm it uses the original muted-grey strikethrough style
+  (unchanged from Phase 1 — no provenance ambiguity there).
+- Click **"Reset to calendar's current dates"** and confirm the selection returns to exactly
+  1/5/6/7/15 (discarding the file entirely, not the union) — and that the button is disabled at
+  that point.
+- Re-upload the file (don't touch anything else) and confirm the selection re-seeds back to the
+  6-date union, not the pre-reset state.
+- Save with the default (untouched) union selection and confirm (via `/calendars`) the final dates
+  are all 6 — proving the headline fix: nothing is silently lost anymore.
+- Confirm **"New calendar" mode is unaffected** — re-run Phase 1's verification steps, including
+  that its Reset button still says "Reset exclusions", targets the file's dates, and its cells
+  never show amber/violet (no `existingDates` there).
+- `tsc -b` in `apps/web` (`eslint` still isn't installed in this project, per earlier note).
+
+## Implementation notes (post-build)
+
+- All of the above verified live via the browser tool, using a constructed overlap scenario
+  (existing calendar dates 1/2/5/6/7, a 3-date file with 1/2/20) to exercise every origin
+  combination at once — confirmed solid violet (1, 2 — overlap), solid amber (5, 6, 7 —
+  existing-only), solid emerald (20 — file-only) immediately on file load, muted/struck versions
+  after excluding one of each, correct stat counts throughout, "Reset to calendar's current dates"
+  returning to exactly the pre-upload set, and the final persisted dates (checked via `/calendars`)
+  matching the on-screen selection exactly.
+- **Found and fixed one real bug while testing** (pre-existing since Phase 1, just masked by a
+  coincidental count match in earlier tests): the post-save success message and `keptAfterSave`
+  used `yearDates.length` (the raw file's year-date count) instead of `included.size` (what was
+  actually saved). This only produced a visibly wrong number once Phase 2's merge logic made the
+  two counts genuinely diverge (file had 3 dates, 5 were actually saved). The *save itself* was
+  always correct — this was a display-only bug, confirmed by checking the real persisted dates on
+  `/calendars` independently of the on-screen message. Fixed in `UploadCalendarPanel.tsx`.

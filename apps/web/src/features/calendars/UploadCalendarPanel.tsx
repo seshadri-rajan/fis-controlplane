@@ -127,21 +127,33 @@ export default function UploadCalendarPanel() {
     [parsed, year],
   );
   const ignoredCount = (parsed?.dates.length ?? 0) - yearDates.length;
-  const gridDates = useMemo(
-    () => yearDates.map((day) => ({ day, reason: "Uploaded", shifted_from: null })),
-    [yearDates],
-  );
 
-  // "New calendar" only: the user-adjusted date set that actually gets saved. Starts as the
-  // file's dates for the year and re-seeds whenever a new file or year makes that stale.
+  // "Upload dates" only: the target calendar's own dates for the selected year — the set that
+  // today's plain replace silently destroys, and what a merge-by-default needs to preserve.
+  const existingYearDates = useMemo(
+    () => (selected?.dates ?? []).filter((d) => d.startsWith(`${year}-`)),
+    [selected, year],
+  );
+  const existingDates = useMemo(() => new Set(existingYearDates), [existingYearDates]);
+
+  // The user-adjusted date set that actually gets saved. "New calendar" seeds from the file alone;
+  // "Upload dates" seeds from the union of the file and the target's existing year-dates (merge by
+  // default), and re-seeds whenever the file, year, mode, or upload target changes.
   const [included, setIncluded] = useState<Set<string>>(new Set());
   useEffect(() => {
-    const dates = (parsed?.dates ?? []).filter((d) => d.startsWith(`${year}-`));
-    setIncluded(new Set(dates));
-  }, [parsed, year]);
+    const fileYearDates = (parsed?.dates ?? []).filter((d) => d.startsWith(`${year}-`));
+    const base =
+      mode === "upload"
+        ? [...fileYearDates, ...(selected?.dates ?? []).filter((d) => d.startsWith(`${year}-`))]
+        : fileYearDates;
+    setIncluded(new Set(base));
+  }, [parsed, year, mode, selected]);
   const fileDates = useMemo(() => new Set(yearDates), [yearDates]);
   const excludedCount = yearDates.filter((d) => !included.has(d)).length;
+  const atRiskCount = existingYearDates.filter((d) => !included.has(d)).length;
   const isAtFileDefault = included.size === fileDates.size && yearDates.every((d) => included.has(d));
+  const isAtExistingDefault =
+    included.size === existingDates.size && existingYearDates.every((d) => included.has(d));
 
   function toggleDate(iso: string) {
     setIncluded((prev) => {
@@ -163,7 +175,7 @@ export default function UploadCalendarPanel() {
         // calendar's current dates now (not a cached copy) and send them back with the new year.
         const current = await getCalendarDates(selectedName);
         const otherYears = current.filter((d) => !d.startsWith(`${year}-`));
-        return uploadCalendarDates(selectedName, csvFile([...otherYears, ...yearDates].sort()));
+        return uploadCalendarDates(selectedName, csvFile([...otherYears, ...included].sort()));
       }
 
       const newName = name.trim();
@@ -208,9 +220,8 @@ export default function UploadCalendarPanel() {
   const nameValid = CALENDAR_NAME.test(name.trim());
   const targetReady = mode === "new" ? nameValid : selectedName !== "";
   const fileValid = !!parsed && parsed.errors.length === 0;
-  // "New calendar" can proceed on a manual selection alone; "Upload dates" still needs file dates.
-  const fileReady = mode === "new" ? fileValid && included.size > 0 : fileValid && yearDates.length > 0;
-  const showGrid = mode === "new" ? fileValid : fileReady;
+  const fileReady = fileValid && included.size > 0;
+  const showGrid = fileValid;
   const ready = canWrite && targetReady && fileReady && !saved;
 
   const existingInYear = selected?.dates?.filter((d) => d.startsWith(`${year}-`)).length ?? 0;
@@ -220,7 +231,7 @@ export default function UploadCalendarPanel() {
       (selected?.dates ?? []).filter((d) => !d.startsWith(`${year}-`)).map((d) => d.slice(0, 4)),
     ),
   ].sort();
-  const keptAfterSave = (saved?.dates?.length ?? 0) - yearDates.length;
+  const keptAfterSave = (saved?.dates?.length ?? 0) - included.size;
 
   if (!user || !canWrite) {
     return (
@@ -330,7 +341,7 @@ export default function UploadCalendarPanel() {
               {selected && (existingInYear > 0 || existingOther > 0) && (
                 <p className="mt-1 text-xs text-amber-700">
                   {existingInYear > 0 &&
-                    `It already has ${existingInYear} dates in ${year}; the dates in your file replace them. `}
+                    `It already has ${existingInYear} dates in ${year}. By default they're kept alongside the file's dates — adjust the selection below if you want to drop any. `}
                   {existingOther > 0 &&
                     `Its ${existingOther} dates in ${otherYears.join(", ")} stay as they are.`}
                 </p>
@@ -418,7 +429,7 @@ export default function UploadCalendarPanel() {
           {saved && (
             <div className="space-y-2 rounded-md bg-emerald-50 p-2 text-sm text-emerald-900">
               <p>
-                Saved <strong>{saved.calendarName}</strong> with {yearDates.length} dates for {year}
+                Saved <strong>{saved.calendarName}</strong> with {included.size} dates for {year}
                 {keptAfterSave > 0 && `; ${keptAfterSave} dates in other years kept`}.{" "}
                 <Link to="/calendars" className="underline">
                   View calendars
@@ -462,29 +473,19 @@ export default function UploadCalendarPanel() {
         {showGrid && (
           <>
             <div className="flex flex-wrap items-center gap-6 rounded-lg border border-slate-200 bg-white px-4 py-3">
-              {mode === "new" ? (
-                <>
-                  <Stat label="Dates in file" value={yearDates.length} />
-                  <Stat label="Selected" value={included.size} />
-                  <Stat label="Excluded" value={excludedCount} />
-                  <Stat label="Year" value={year} />
-                </>
-              ) : (
-                <>
-                  <Stat label="Dates in file" value={yearDates.length} />
-                  <Stat label="First" value={yearDates[0]} />
-                  <Stat label="Last" value={yearDates[yearDates.length - 1]} />
-                  <Stat label="Year" value={year} />
-                </>
-              )}
-              {mode === "new" && !saved && (
+              <Stat label="Dates in file" value={yearDates.length} />
+              <Stat label="Selected" value={included.size} />
+              <Stat label="Excluded" value={excludedCount} />
+              {mode === "upload" && <Stat label="On calendar" value={atRiskCount} />}
+              <Stat label="Year" value={year} />
+              {!saved && (
                 <button
                   type="button"
-                  disabled={isAtFileDefault}
-                  onClick={() => setIncluded(new Set(fileDates))}
+                  disabled={mode === "upload" ? isAtExistingDefault : isAtFileDefault}
+                  onClick={() => setIncluded(new Set(mode === "upload" ? existingDates : fileDates))}
                   className="ml-auto rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
                 >
-                  Reset exclusions
+                  {mode === "upload" ? "Reset to calendar's current dates" : "Reset exclusions"}
                 </button>
               )}
             </div>
@@ -496,32 +497,38 @@ export default function UploadCalendarPanel() {
               </p>
             )}
 
-            {mode === "new" ? (
-              <>
+            {mode === "upload" ? (
+              <div className="space-y-1">
                 <Legend
                   items={[
-                    ["bg-emerald-500", "Included"],
-                    ["bg-slate-200", "Excluded"],
+                    ["bg-emerald-500", "From file"],
+                    ["bg-amber-500", "On calendar only"],
+                    ["bg-violet-500", "In both"],
                   ]}
                 />
-                <MonthGrid
-                  year={year}
-                  included={!saved ? included : undefined}
-                  fileDates={!saved ? fileDates : undefined}
-                  onToggleDate={!saved ? toggleDate : undefined}
-                  dates={
-                    saved
-                      ? (saved.dates ?? []).map((day) => ({ day, reason: "Saved", shifted_from: null }))
-                      : undefined
-                  }
-                />
-              </>
+                <p className="text-xs text-slate-500">Struck-through = currently excluded</p>
+              </div>
             ) : (
-              <>
-                <Legend items={[["bg-emerald-500", "Date in the file"]]} />
-                <MonthGrid year={year} dates={gridDates} holidays={new Map()} />
-              </>
+              <Legend
+                items={[
+                  ["bg-emerald-500", "Included"],
+                  ["bg-slate-200", "Excluded"],
+                ]}
+              />
             )}
+
+            <MonthGrid
+              year={year}
+              included={!saved ? included : undefined}
+              fileDates={!saved ? fileDates : undefined}
+              existingDates={!saved && mode === "upload" ? existingDates : undefined}
+              onToggleDate={!saved ? toggleDate : undefined}
+              dates={
+                saved
+                  ? (saved.dates ?? []).map((day) => ({ day, reason: "Saved", shifted_from: null }))
+                  : undefined
+              }
+            />
           </>
         )}
       </div>

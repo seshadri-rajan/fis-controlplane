@@ -84,24 +84,55 @@ function titleFor(iso: string, info: DayInfo | undefined) {
   return parts.join(" — ");
 }
 
-/** Toggle-mode styling: included / excluded (was in the file, now turned off) / untouched. */
-function toggleCellClass(isIncluded: boolean, isExcluded: boolean) {
-  if (isIncluded) return "bg-emerald-500 text-white font-medium";
-  if (isExcluded) return "bg-slate-200 text-slate-500 line-through";
-  return "border border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600";
+/**
+ * Toggle-mode styling: colour encodes where a day came from (file / existing calendar / both);
+ * included vs excluded is a secondary solid-vs-muted treatment on top of that colour.
+ */
+function toggleCellClass(isIncluded: boolean, inFile: boolean, inExisting: boolean) {
+  if (inFile && inExisting) {
+    return isIncluded
+      ? "bg-violet-500 text-white font-medium"
+      : "bg-violet-100 text-violet-700 line-through";
+  }
+  if (inExisting) {
+    return isIncluded
+      ? "bg-amber-500 text-white font-medium"
+      : "bg-amber-100 text-amber-700 line-through";
+  }
+  if (inFile) {
+    return isIncluded
+      ? "bg-emerald-500 text-white font-medium"
+      : "bg-slate-200 text-slate-500 line-through";
+  }
+  // Neither: untouched, or manually added beyond the file/calendar (shown as plain included).
+  return isIncluded
+    ? "bg-emerald-500 text-white font-medium"
+    : "border border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600";
 }
 
-function toggleTitleFor(iso: string, isIncluded: boolean, isExcluded: boolean) {
-  if (isIncluded) return `${iso} — Included (click to exclude)`;
-  if (isExcluded) return `${iso} — Excluded (click to include)`;
-  return `${iso} — click to include`;
+function toggleTitleFor(iso: string, isIncluded: boolean, inFile: boolean, inExisting: boolean) {
+  const action = isIncluded ? "click to exclude" : "click to include";
+  if (inFile && inExisting) {
+    return `${iso} — In the file and already on the calendar, ${isIncluded ? "included" : "excluded"} (${action})`;
+  }
+  if (inExisting) {
+    return isIncluded
+      ? `${iso} — On the calendar, not in the file, included (${action})`
+      : `${iso} — On the calendar, not in the file — will be removed (${action})`;
+  }
+  if (inFile) {
+    return `${iso} — In the file, ${isIncluded ? "included" : "excluded"} (${action})`;
+  }
+  return isIncluded ? `${iso} — Added, included (${action})` : `${iso} — ${action}`;
 }
 
 type ToggleProps = {
   /** Dates that will be saved; drives both styling and the save payload. */
   included: Set<string>;
-  /** The original file's dates for this year, so "excluded" can be told apart from "untouched". */
+  /** The original file's dates for this year. */
   fileDates: Set<string>;
+  /** The target calendar's own dates for this year, if any ("Upload dates" mode only). */
+  existingDates: Set<string>;
   onToggleDate: (iso: string) => void;
 };
 
@@ -137,15 +168,16 @@ function Month({
 
           if (toggle) {
             const isIncluded = toggle.included.has(iso);
-            const isExcluded = !isIncluded && toggle.fileDates.has(iso);
+            const inFile = toggle.fileDates.has(iso);
+            const inExisting = toggle.existingDates.has(iso);
             return (
               <button
                 key={iso}
                 type="button"
                 aria-pressed={isIncluded}
-                title={toggleTitleFor(iso, isIncluded, isExcluded)}
+                title={toggleTitleFor(iso, isIncluded, inFile, inExisting)}
                 onClick={() => toggle.onToggleDate(iso)}
-                className={`rounded py-1 ${toggleCellClass(isIncluded, isExcluded)}`}
+                className={`rounded py-1 ${toggleCellClass(isIncluded, inFile, inExisting)}`}
               >
                 {i + 1}
               </button>
@@ -174,19 +206,24 @@ export default function MonthGrid({
   holidays = new Map(),
   included,
   fileDates,
+  existingDates,
   onToggleDate,
 }: {
   year: number;
   dates?: GridDate[];
   holidays?: Map<string, string>;
-  /** Omit to render read-only, as today. All three toggle props are required together. */
+  /** Omit to render read-only, as today. `included`/`fileDates`/`onToggleDate` are required together. */
   included?: Set<string>;
   fileDates?: Set<string>;
+  /** "Upload dates" mode only; omit (or leave empty) for "New calendar". */
+  existingDates?: Set<string>;
   onToggleDate?: (iso: string) => void;
 }) {
   const index = indexDates(dates, holidays);
   const toggle =
-    included && fileDates && onToggleDate ? { included, fileDates, onToggleDate } : undefined;
+    included && fileDates && onToggleDate
+      ? { included, fileDates, existingDates: existingDates ?? new Set<string>(), onToggleDate }
+      : undefined;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
