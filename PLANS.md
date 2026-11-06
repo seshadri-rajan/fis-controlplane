@@ -3,6 +3,8 @@
 Status: **Phase 1 ("New calendar" mode) implemented, tested, and shipped (2026-11-06).**
 **Phase 2 ("Upload dates" mode, Option B merge-by-default with provenance colours) implemented,
 tested, and shipped (2026-11-06).**
+**Phase 3 (removal of "Define by rules" creation): implemented and tested (2026-11-06).** See the
+note at the end of this file.
 
 > **Supersedes the previous version of this file** (toggle on the rule-based "Define by rules"
 > preview). After a 2026-11-06 call with the product team, the toggle is now wanted on the
@@ -384,3 +386,55 @@ button, same position, same color scheme as "Create calendar" from the earlier s
   two counts genuinely diverge (file had 3 dates, 5 were actually saved). The *save itself* was
   always correct — this was a display-only bug, confirmed by checking the real persisted dates on
   `/calendars` independently of the on-screen message. Fixed in `UploadCalendarPanel.tsx`.
+
+---
+
+# Phase 3: remove "Define by rules" calendar creation entirely
+
+Status: **Implemented and tested (2026-11-06).** Product decided the Upload-file flow should be
+the only (and default) way to create a calendar; the rule-based tab is removed, not just hidden.
+
+## Investigation
+
+Traced every consumer of the rule-based creation code to separate "UI-only, safe to delete" from
+"also used by the mock backend's seed data, must stay":
+
+- **UI-only, deleted**: `CalendarForm.tsx` (the rule/weekday/holiday-offset form) and
+  `HolidayCalendarSelect.tsx` (only ever used by `CalendarForm`). Neither is referenced from
+  `CalendarsPage.tsx` or anywhere else.
+- **`CreateCalendarPage.tsx`**: previously held a `"rules" | "upload"` mode toggle and an inline
+  `RuleBasedCreate` component (preview query, save mutation, its own `MonthGrid`/`Legend`/`Stat`
+  usage). Replaced with a page that renders only `<UploadCalendarPanel />` — no toggle, no rule
+  code left in the file.
+- **`calendarFormModel.ts`**: trimmed to just the `CALENDAR_NAME` regex, which
+  `UploadCalendarPanel.tsx` also imports and still needs. Everything else in that file
+  (`FormState`, `INITIAL`, `defaultParams`, `paramError`, `previewRequestOf`, `createRequestOf`,
+  `CalendarKind`) had no other consumers once `CalendarForm.tsx`/`CreateCalendarPage.tsx`'s rule
+  path were gone, so it was deleted rather than left as dead code.
+- **Deliberately left alone** (minimal-impact — these are not UI and are still load-bearing):
+  - `client.ts`'s `listRuleCatalog`/`previewCalendar`/`listHolidayCalendars` and the mock's
+    matching `/v1/rules`, `/v1/calendars/preview`, `/v1/holiday-calendars` handlers — these
+    represent proposed backend-contract surface (tracked in
+    `req-details/api-spec/API_SPEC_ISSUES.md`, API-005/API-010/API-020), independent of whether
+    this app's UI currently calls them.
+  - `mocks/ruleEngine.ts` (`RULES`, `HOLIDAY_CALENDARS`, `generatePreview`, `validatePreview`) —
+    **not dead code**: `mocks/store.ts` calls `generatePreview` directly to compute realistic
+    dates for the seeded demo calendars (`NYSE-Trading-Days`, `Payroll-10th-Working-Day`, the
+    `AUTOSYS_*` migrated calendars, etc.), entirely independent of the creation UI.
+  - `proposed.ts`'s `RuleDefinition`/`RuleParameter`/`CalendarPreviewRequest`/
+    `CalendarPreviewResponse`/`HolidayCalendarOption` types — still used by the above.
+  - `CalendarsPage.tsx`'s `scheduleOf()`/`holidayHandlingOf()` — these *display* a stored
+    calendar's `dateRuleType`/`runDate`/`runDay`/`holidayCalendar` fields in the browse/detail
+    view; existing rule-based calendars (seeded or created before this change) still need to show
+    correctly. Untouched.
+
+## Verification
+
+- `tsc -b` in `apps/web`: clean, both immediately after the edit and after a full dev-server
+  reload (Vite's HMR briefly tried to hot-reload the deleted files mid-edit and logged transient
+  404s — resolved by a normal page reload, not a real issue).
+- Browser: `/create` now loads straight into the Upload-file screen, no tab/mode toggle visible;
+  the unrelated inner "New calendar"/"Upload dates" radio group (a different, still-needed
+  toggle) is untouched.
+- Confirmed existing rule-based calendars (e.g. `NYSE-Trading-Days`) still browse and render
+  correctly on `/calendars`, proving the seed-data/display path was unaffected.
