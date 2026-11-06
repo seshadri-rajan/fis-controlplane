@@ -84,14 +84,37 @@ function titleFor(iso: string, info: DayInfo | undefined) {
   return parts.join(" — ");
 }
 
+/** Toggle-mode styling: included / excluded (was in the file, now turned off) / untouched. */
+function toggleCellClass(isIncluded: boolean, isExcluded: boolean) {
+  if (isIncluded) return "bg-emerald-500 text-white font-medium";
+  if (isExcluded) return "bg-slate-200 text-slate-500 line-through";
+  return "border border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600";
+}
+
+function toggleTitleFor(iso: string, isIncluded: boolean, isExcluded: boolean) {
+  if (isIncluded) return `${iso} — Included (click to exclude)`;
+  if (isExcluded) return `${iso} — Excluded (click to include)`;
+  return `${iso} — click to include`;
+}
+
+type ToggleProps = {
+  /** Dates that will be saved; drives both styling and the save payload. */
+  included: Set<string>;
+  /** The original file's dates for this year, so "excluded" can be told apart from "untouched". */
+  fileDates: Set<string>;
+  onToggleDate: (iso: string) => void;
+};
+
 function Month({
   year,
   month,
   index,
+  toggle,
 }: {
   year: number;
   month: number;
   index: Map<string, DayInfo>;
+  toggle?: ToggleProps;
 }) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   // getDay() is Sunday-first; the grid is Monday-first.
@@ -111,6 +134,24 @@ function Month({
         ))}
         {Array.from({ length: daysInMonth }, (_, i) => {
           const iso = isoFor(year, month, i + 1);
+
+          if (toggle) {
+            const isIncluded = toggle.included.has(iso);
+            const isExcluded = !isIncluded && toggle.fileDates.has(iso);
+            return (
+              <button
+                key={iso}
+                type="button"
+                aria-pressed={isIncluded}
+                title={toggleTitleFor(iso, isIncluded, isExcluded)}
+                onClick={() => toggle.onToggleDate(iso)}
+                className={`rounded py-1 ${toggleCellClass(isIncluded, isExcluded)}`}
+              >
+                {i + 1}
+              </button>
+            );
+          }
+
           const info = index.get(iso);
           return (
             <div
@@ -129,19 +170,28 @@ function Month({
 
 export default function MonthGrid({
   year,
-  dates,
-  holidays,
+  dates = [],
+  holidays = new Map(),
+  included,
+  fileDates,
+  onToggleDate,
 }: {
   year: number;
-  dates: GridDate[];
-  holidays: Map<string, string>;
+  dates?: GridDate[];
+  holidays?: Map<string, string>;
+  /** Omit to render read-only, as today. All three toggle props are required together. */
+  included?: Set<string>;
+  fileDates?: Set<string>;
+  onToggleDate?: (iso: string) => void;
 }) {
   const index = indexDates(dates, holidays);
+  const toggle =
+    included && fileDates && onToggleDate ? { included, fileDates, onToggleDate } : undefined;
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {Array.from({ length: 12 }, (_, month) => (
-        <Month key={month} year={year} month={month} index={index} />
+        <Month key={month} year={year} month={month} index={index} toggle={toggle} />
       ))}
     </div>
   );

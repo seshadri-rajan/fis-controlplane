@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
@@ -132,6 +132,26 @@ export default function UploadCalendarPanel() {
     [yearDates],
   );
 
+  // "New calendar" only: the user-adjusted date set that actually gets saved. Starts as the
+  // file's dates for the year and re-seeds whenever a new file or year makes that stale.
+  const [included, setIncluded] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const dates = (parsed?.dates ?? []).filter((d) => d.startsWith(`${year}-`));
+    setIncluded(new Set(dates));
+  }, [parsed, year]);
+  const fileDates = useMemo(() => new Set(yearDates), [yearDates]);
+  const excludedCount = yearDates.filter((d) => !included.has(d)).length;
+  const isAtFileDefault = included.size === fileDates.size && yearDates.every((d) => included.has(d));
+
+  function toggleDate(iso: string) {
+    setIncluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso);
+      else next.add(iso);
+      return next;
+    });
+  }
+
   const save = useMutation({
     mutationFn: async () => {
       if (!file) throw new Error("No file selected");
@@ -155,7 +175,7 @@ export default function UploadCalendarPanel() {
         });
         setCreatedName(newName);
       }
-      return uploadCalendarDates(newName, csvFile(yearDates));
+      return uploadCalendarDates(newName, csvFile([...included].sort()));
     },
     onSuccess: (calendar) => {
       setSaved(calendar);
@@ -188,7 +208,9 @@ export default function UploadCalendarPanel() {
   const nameValid = CALENDAR_NAME.test(name.trim());
   const targetReady = mode === "new" ? nameValid : selectedName !== "";
   const fileValid = !!parsed && parsed.errors.length === 0;
-  const fileReady = fileValid && yearDates.length > 0;
+  // "New calendar" can proceed on a manual selection alone; "Upload dates" still needs file dates.
+  const fileReady = mode === "new" ? fileValid && included.size > 0 : fileValid && yearDates.length > 0;
+  const showGrid = mode === "new" ? fileValid : fileReady;
   const ready = canWrite && targetReady && fileReady && !saved;
 
   const existingInYear = selected?.dates?.filter((d) => d.startsWith(`${year}-`)).length ?? 0;
@@ -433,16 +455,38 @@ export default function UploadCalendarPanel() {
           <p role="alert" className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
             The file has no dates in {year}. It has {parsed.dates.length} in other years; choose
             the year they belong to.
+            {mode === "new" && " You can still pick dates manually on the calendar below."}
           </p>
         )}
 
-        {fileReady && (
+        {showGrid && (
           <>
             <div className="flex flex-wrap items-center gap-6 rounded-lg border border-slate-200 bg-white px-4 py-3">
-              <Stat label="Dates in file" value={yearDates.length} />
-              <Stat label="First" value={yearDates[0]} />
-              <Stat label="Last" value={yearDates[yearDates.length - 1]} />
-              <Stat label="Year" value={year} />
+              {mode === "new" ? (
+                <>
+                  <Stat label="Dates in file" value={yearDates.length} />
+                  <Stat label="Selected" value={included.size} />
+                  <Stat label="Excluded" value={excludedCount} />
+                  <Stat label="Year" value={year} />
+                </>
+              ) : (
+                <>
+                  <Stat label="Dates in file" value={yearDates.length} />
+                  <Stat label="First" value={yearDates[0]} />
+                  <Stat label="Last" value={yearDates[yearDates.length - 1]} />
+                  <Stat label="Year" value={year} />
+                </>
+              )}
+              {mode === "new" && !saved && (
+                <button
+                  type="button"
+                  disabled={isAtFileDefault}
+                  onClick={() => setIncluded(new Set(fileDates))}
+                  className="ml-auto rounded-md bg-slate-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+                >
+                  Reset exclusions
+                </button>
+              )}
             </div>
 
             {ignoredCount > 0 && (
@@ -452,9 +496,32 @@ export default function UploadCalendarPanel() {
               </p>
             )}
 
-            <Legend items={[["bg-emerald-500", "Date in the file"]]} />
-
-            <MonthGrid year={year} dates={gridDates} holidays={new Map()} />
+            {mode === "new" ? (
+              <>
+                <Legend
+                  items={[
+                    ["bg-emerald-500", "Included"],
+                    ["bg-slate-200", "Excluded"],
+                  ]}
+                />
+                <MonthGrid
+                  year={year}
+                  included={!saved ? included : undefined}
+                  fileDates={!saved ? fileDates : undefined}
+                  onToggleDate={!saved ? toggleDate : undefined}
+                  dates={
+                    saved
+                      ? (saved.dates ?? []).map((day) => ({ day, reason: "Saved", shifted_from: null }))
+                      : undefined
+                  }
+                />
+              </>
+            ) : (
+              <>
+                <Legend items={[["bg-emerald-500", "Date in the file"]]} />
+                <MonthGrid year={year} dates={gridDates} holidays={new Map()} />
+              </>
+            )}
           </>
         )}
       </div>
