@@ -86,23 +86,18 @@ function titleFor(iso: string, info: DayInfo | undefined) {
 
 /**
  * Toggle-mode styling: colour encodes where a day came from (file / existing calendar / both);
- * included vs excluded is a secondary solid-vs-muted treatment on top of that colour.
+ * included vs excluded is a secondary solid-vs-muted treatment on top of that colour (an "X"
+ * overlay marks excluded, see `Month`, rather than strikethrough text).
  */
 function toggleCellClass(isIncluded: boolean, inFile: boolean, inExisting: boolean) {
   if (inFile && inExisting) {
-    return isIncluded
-      ? "bg-violet-500 text-white font-medium"
-      : "bg-violet-100 text-violet-700 line-through";
+    return isIncluded ? "bg-violet-500 text-white font-medium" : "bg-violet-100 text-violet-700";
   }
   if (inExisting) {
-    return isIncluded
-      ? "bg-amber-500 text-white font-medium"
-      : "bg-amber-100 text-amber-700 line-through";
+    return isIncluded ? "bg-amber-500 text-white font-medium" : "bg-amber-100 text-amber-700";
   }
   if (inFile) {
-    return isIncluded
-      ? "bg-emerald-500 text-white font-medium"
-      : "bg-slate-200 text-slate-500 line-through";
+    return isIncluded ? "bg-emerald-500 text-white font-medium" : "bg-slate-200 text-slate-500";
   }
   // Neither: untouched, or manually added beyond the file/calendar (shown as plain included).
   return isIncluded
@@ -170,6 +165,9 @@ function Month({
             const isIncluded = toggle.included.has(iso);
             const inFile = toggle.fileDates.has(iso);
             const inExisting = toggle.existingDates.has(iso);
+            // A day with an origin (file or existing) that's currently excluded gets an "X"
+            // mark over the number instead of strikethrough text.
+            const showExcludedMark = !isIncluded && (inFile || inExisting);
             return (
               <button
                 key={iso}
@@ -177,9 +175,17 @@ function Month({
                 aria-pressed={isIncluded}
                 title={toggleTitleFor(iso, isIncluded, inFile, inExisting)}
                 onClick={() => toggle.onToggleDate(iso)}
-                className={`rounded py-1 ${toggleCellClass(isIncluded, inFile, inExisting)}`}
+                className={`relative rounded py-1 ${toggleCellClass(isIncluded, inFile, inExisting)}`}
               >
                 {i + 1}
+                {showExcludedMark && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold opacity-70"
+                  >
+                    ✕
+                  </span>
+                )}
               </button>
             );
           }

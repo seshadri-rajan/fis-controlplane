@@ -506,7 +506,7 @@ export default function UploadCalendarPanel() {
                     ["bg-violet-500", "In both"],
                   ]}
                 />
-                <p className="text-xs text-slate-500">Struck-through = currently excluded</p>
+                <p className="text-xs text-slate-500">Marked with ✕ = currently excluded</p>
               </div>
             ) : (
               <Legend
