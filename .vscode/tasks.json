@@ -1,0 +1,49 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Calendar Service (8000)",
+            "type": "shell",
+            "command": "${workspaceFolder}\\.venv\\Scripts\\python.exe -m uvicorn calendar_service.main:app --host 127.0.0.1 --port 8000 --app-dir src",
+            "options": {
+                "cwd": "${workspaceFolder}/apps/calendar_service",
+                "env": {
+                    "CALENDAR_SESSION_COOKIE_SECURE": "false"
+                }
+            },
+            "isBackground": true,
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "backend",
+                "close": false
+            }
+        },
+        {
+            "label": "Start Web UI (5173)",
+            "type": "shell",
+            "command": "npm run dev",
+            "options": {
+                "cwd": "${workspaceFolder}/apps/web"
+            },
+            "isBackground": true,
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "group": "frontend",
+                "close": false
+            }
+        },
+        {
+            "label": "Start Calendar Platform (Backend + Web UI)",
+            "dependsOn": [
+                "Start Calendar Service (8000)",
+                "Start Web UI (5173)"
+            ],
+            "dependsOrder": "parallel",
+            "problemMatcher": []
+        }
+    ]
+}
