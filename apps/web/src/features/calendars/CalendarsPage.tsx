@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
 
 import { getCalendarDates, listCalendars } from "../../lib/api/client";
 import type { SpecCalendar } from "../../lib/api/client";
+import { useTabs } from "../navigation/TabsProvider";
 import { field, label } from "./formStyles";
 import MonthGrid, { Legend } from "./MonthGrid";
 
@@ -64,6 +64,7 @@ const formatDate = (iso: string | undefined) =>
     : "–";
 
 export default function CalendarsPage() {
+  const { setTab } = useTabs();
   const [selected, setSelected] = useState<string | null>(null);
   const [yearChoice, setYearChoice] = useState<number | null>(null);
   const [search, setSearch] = useState("");
@@ -125,9 +126,9 @@ export default function CalendarsPage() {
       {calendars.data?.length === 0 && (
         <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
           No calendars yet.{" "}
-          <Link to="/create" className="font-medium underline">
+          <button type="button" onClick={() => setTab("create")} className="font-medium underline">
             Create one
-          </Link>
+          </button>
           .
         </p>
       )}
@@ -245,9 +246,9 @@ export default function CalendarsPage() {
             {dates.data?.length === 0 && (
               <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
                 This calendar has no dates yet.{" "}
-                <Link to="/create" className="font-medium underline">
+                <button type="button" onClick={() => setTab("create")} className="font-medium underline">
                   Upload a file
-                </Link>{" "}
+                </button>{" "}
                 to add some.
               </p>
             )}

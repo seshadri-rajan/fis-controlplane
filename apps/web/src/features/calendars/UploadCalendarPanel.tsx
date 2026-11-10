@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router";
 
 import {
   createSpecCalendar,
@@ -14,6 +13,7 @@ import type { ApiError, SpecCalendar } from "../../lib/api/client";
 import { MAX_UPLOAD_BYTES, datesCsv, parseDatesCsv, sampleCsv } from "../../lib/api/parseDatesCsv";
 import type { ParsedDates } from "../../lib/api/parseDatesCsv";
 import { useAuth } from "../auth/AuthProvider";
+import { useTabs } from "../navigation/TabsProvider";
 import { CALENDAR_NAME } from "./calendarFormModel";
 import { field, label } from "./formStyles";
 import MonthGrid, { Legend } from "./MonthGrid";
@@ -87,6 +87,7 @@ function RadioGroup<T extends string>({
 
 export default function UploadCalendarPanel() {
   const { user, has } = useAuth();
+  const { setTab } = useTabs();
   const queryClient = useQueryClient();
 
   const [mode, setMode] = useState<Mode>("new");
@@ -233,22 +234,11 @@ export default function UploadCalendarPanel() {
   ].sort();
   const keptAfterSave = (saved?.dates?.length ?? 0) - included.size;
 
-  if (!user || !canWrite) {
+  if (!canWrite) {
     return (
       <p className="max-w-xl rounded-md bg-slate-100 p-3 text-sm text-slate-700">
-        {!user ? (
-          <>
-            <Link to="/calendars" className="font-medium underline">
-              Sign in
-            </Link>{" "}
-            to upload a calendar.
-          </>
-        ) : (
-          <>
-            Your roles ({user.roles.join(", ")}) cannot upload calendars. Uploading requires EDITOR
-            or ADMIN.
-          </>
-        )}
+        Your roles ({user?.roles.join(", ")}) cannot upload calendars. Uploading requires EDITOR or
+        ADMIN.
       </p>
     );
   }
@@ -431,9 +421,9 @@ export default function UploadCalendarPanel() {
               <p>
                 Saved <strong>{saved.calendarName}</strong> with {included.size} dates for {year}
                 {keptAfterSave > 0 && `; ${keptAfterSave} dates in other years kept`}.{" "}
-                <Link to="/calendars" className="underline">
+                <button type="button" onClick={() => setTab("calendars")} className="underline">
                   View calendars
-                </Link>
+                </button>
               </p>
               <button type="button" onClick={startOver} className="underline">
                 Upload another

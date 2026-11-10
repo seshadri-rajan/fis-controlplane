@@ -13,10 +13,12 @@ async function initMocks() {
     try {
       const { worker } = await import("./lib/api/mocks/browser");
       // A service worker that never activates would otherwise leave the page blank forever.
+      // 20s, not 5s: registration + activation + the start() handshake can genuinely take this
+      // long on a cold dev server or right after a dependency install, which isn't "never".
       await Promise.race([
         worker.start(),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error("timed out after 5s")), 5000),
+          setTimeout(() => reject(new Error("timed out after 20s")), 20000),
         ),
       ]);
     } catch (error) {
