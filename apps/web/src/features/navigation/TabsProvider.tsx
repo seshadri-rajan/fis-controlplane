@@ -1,11 +1,13 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router";
 
+import { CALENDARS_PATH, CREATE_PATH } from "./paths";
+
 export type TabId = "calendars" | "create";
 
 const TAB_PATH: Record<TabId, string> = {
-  calendars: "/calendars",
-  create: "/create",
+  calendars: CALENDARS_PATH,
+  create: CREATE_PATH,
 };
 
 type TabsValue = {

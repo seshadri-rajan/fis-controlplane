@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router";
 
 import { ApiError } from "../../lib/api/client";
+import { HOME_PATH } from "../navigation/paths";
 import { useAuth } from "./AuthProvider";
 
 const field = "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm";
@@ -8,6 +10,7 @@ const label = "block text-xs font-medium text-slate-600 mb-1";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
+  const navigate = useNavigate();
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -19,6 +22,8 @@ export default function LoginPage() {
     setError(null);
     try {
       await signIn(userName, password);
+      // Signing in always starts from Home, even when the form was shown on a deep link.
+      navigate(HOME_PATH, { replace: true });
     } catch (cause) {
       setError(
         cause instanceof ApiError && cause.status === 403

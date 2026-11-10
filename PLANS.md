@@ -1,4 +1,190 @@
-# Plan: replace the nav bar with in-page tabs (URL kept in sync with the active tab)
+# Plan: Control Plane navbar (Home / Metadata / Calendar) with Calendar sub-tabs
+
+Status: **DONE — implemented and verified in the browser** (`npx tsc -b` clean, 2026-11-10). See
+"Progress" for the checklist and "Implementation notes" for what differed from the plan.
+
+## Progress
+
+| # | Item | State |
+|---|---|---|
+| 1 | Investigate screenshot (sampled colours/geometry) and current navbar | ✅ done |
+| 2 | Plan written, product answers (6) folded in | ✅ done |
+| 3 | `paths.ts` — `BASE_PATH = "/controlPlane"` + derived paths | ✅ done |
+| 4 | `Navbar.tsx` — dark gradient, brand, Home / Metadata / Calendar, user badge | ✅ done |
+| 5 | `CalendarSection.tsx` — sub-tabs + nested routes, only under Calendar | ✅ done |
+| 6 | `HomePage.tsx` / `MetadataPage.tsx` — big centred page-name placeholders | ✅ done |
+| 7 | `TabsProvider.tsx` — uses the prefixed path constants | ✅ done |
+| 8 | `App.tsx` — navbar, auth gate, prefixed routes, legacy redirects | ✅ done |
+| 9 | Sign-in and sign-out land on Home (`LoginPage.tsx`, navbar user badge) | ✅ done |
+| 10 | `index.html` title → "Control Plane" | ✅ done |
+| 11 | Docs — `apps/web/README.md` navigation and routes section | ✅ done |
+| 12 | Type-check (`npx tsc -b`) | ✅ clean |
+| 13 | Visual match to reference (62px bar, 30px pill, sampled colours) | ✅ done |
+| 14 | Browser e2e: navigation, redirects, auth, calendars, create/upload, roles, 390px | ✅ passed (2 bugs found and fixed, see notes) |
+| 15 | Real Home / Metadata content, embedding mechanics, restyling calendar pages | ⏸ out of scope |
+
+**Known gaps / caveats**
+- The "Upload a file" empty-calendar link was skipped in the first re-run (no 0-date calendar was
+  left in the mock store after earlier test uploads); it passed in the second run.
+- Navbar brand/menu sit at the far edges (like the host's UI) while page content stays centred, so
+  they don't line up; moving the navbar inside the content column is a one-class change.
+- Test calendars (`Nav_*`, `Mrg_*`, `Run_*`) live in the mock store (`sessionStorage`) and vanish
+  when the tab closes.
+
+## Request
+
+Product already has two apps, **"Control Plane"** and **"Metadata"**, and will integrate this UI into
+theirs. Our navbar must match theirs. The main navbar has **3 items — `Home`, `Metadata`,
+`Calendar`** — under the app name **"Control Plane"** (written "Contol Plane" in the request; the
+screenshot spells it "Control Plane", so that is used). Our calendar pages and sub-tab system
+(`Calendars` / `Create`) must appear **only after the user clicks the main `Calendar` menu item**.
+
+## What the screenshot shows (their UI, `localhost:5174/controlPlane`)
+
+Colours were sampled from the pixels and match the Tailwind palette exactly (we already use
+Tailwind v4 + slate, so no new tooling is needed):
+
+| Element | Observed | Tailwind equivalent |
+|---|---|---|
+| Navbar background | left-to-right gradient `#0f172b` → `#314158` | `bg-linear-to-r from-slate-900 to-slate-700` |
+| Navbar size / shadow | ~62px tall, full width, soft shadow below | `shadow-md`, `px-8`, `py-4` |
+| Brand | "Control" white bold, "Plane" indigo accent, at far left | `text-xl font-bold text-white` + `text-indigo-400` |
+| Nav items | far right, ~15px semibold | `text-sm font-semibold` |
+| Active item | solid `#625fff` pill, white text, ~90×30px, rounded | `bg-indigo-500 text-white rounded-lg px-3.5 py-1.5` |
+| Inactive item | light text (≈`#dce8ff`) on the gradient | `text-slate-200 hover:bg-white/10` |
+| Page background | `#f7f9fb` | `bg-slate-50` (**same as ours**) |
+| Cards | white, very light border + soft shadow, large radius | (ours: `rounded-lg border-slate-200`) |
+| Primary button | `#4f39f7` | `indigo-600` (ours today: `slate-900`) |
+| Content width | full width; card left edge lines up with the brand | ours is centred `max-w-6xl` |
+
+**Two differences from the request to confirm:** the screenshot's items are `MetaData`, `Calendars`,
+`Create` (Calendars/Create are *separate top-level items* there), while the request says
+`Home`, `Metadata`, `Calendar`. The plan follows the **request text**; the screenshot is used for
+style only. Also their page is `/controlPlane` on port 5174; we keep our own paths.
+
+## Our current navbar (for comparison)
+
+`App.tsx`: a white header (`border-b border-slate-200 bg-white`) with the title "Calendar Platform"
+and the user badge / Sign out; the `Calendars`/`Create` tab strip sits *below* it (added in the
+previous task). `RequireAuth` wraps all content. Routes today: `/`→`/calendars`, `/calendars`,
+`/create`, `/preview`→`/create`, `*`→`/calendars`. `TabsProvider` derives the sub-tab from the URL.
+
+## Design
+
+1. **New dark-gradient `Navbar`** (`features/navigation/Navbar.tsx`), styled per the table above:
+   brand "Control **Plane**" on the left; on the right `Home`, `Metadata`, `Calendar`, then the user
+   badge + Sign out restyled for the dark bar (`text-slate-300`, `border-white/25`,
+   `hover:bg-white/10`). Items are real links (`NavLink`, inside `<nav aria-label="Main">`), the
+   active one gets `aria-current="page"` and the indigo pill.
+2. **Routes, all under the `/controlPlane` prefix** (react-router stays, URL stays in sync). The
+   prefix lives in **one constant** (`BASE_PATH = "/controlPlane"`, e.g. in
+   `features/navigation/paths.ts`) and every route, link, redirect and `navigate()` call is built
+   from it, so changing the prefix later is a one-line edit. Absolute-prefixed routes are used
+   rather than `BrowserRouter basename`, so URLs outside the prefix can be redirected in:
+   - `/controlPlane` → **Home**; `/controlPlane/metadata` → **Metadata**;
+     `/controlPlane/calendar` → redirect to `/controlPlane/calendar/calendars`;
+     `/controlPlane/calendar/calendars` → Calendars; `/controlPlane/calendar/create` → Create.
+   - Old URLs keep working via redirects: `/` → `/controlPlane`; `/calendars` →
+     `/controlPlane/calendar/calendars`; `/create` and `/preview` →
+     `/controlPlane/calendar/create`; any unknown path → `/controlPlane`.
+   - The `Calendar` nav item is active for anything under `/controlPlane/calendar`; `Home` is
+     active only on exactly `/controlPlane` (`end`).
+   - Vite's dev server already serves `index.html` for any path, and the MSW mocks (`/v1/*`) and
+     `mockServiceWorker.js` are unaffected by the prefix. `vite.config.ts` / `base` stay unchanged.
+3. **Sub-tabs only inside Calendar.** The current `TabbedPages` moves out of `App.tsx` into
+   `features/calendars/CalendarSection.tsx` (tablist + panel + nested routes). Home and Metadata show
+   no tab strip. `TabsProvider` reads `…/calendar/create` vs `…/calendar/calendars` (via the path
+   constants), and `setTab` navigates there; `CalendarsPage` and `UploadCalendarPanel` are
+   **unchanged** (they already call `useTabs().setTab(...)`).
+4. **Clicking `Calendar` always lands on the `Calendars` sub-tab** (first tab), never "last used".
+5. **Auth:** `RequireAuth` still wraps all routes (Home/Metadata too, until the host owns auth).
+   Signed out: the bar shows only the brand (no menu items, no user badge) above the login form.
+   **Sign-out and sign-in both land on Home (`/controlPlane`)**, as decided: sign-out navigates to
+   Home, and a successful sign-in navigates to Home even when the login form was shown on a deep
+   link such as `/controlPlane/calendar/create`. (A page reload while already signed in keeps the
+   current URL — that is not a sign-in.)
+6. **Home and Metadata are placeholders** (`features/home/HomePage.tsx`,
+   `features/metadata/MetadataPage.tsx`): **just a large heading centred in the middle of the page**
+   with the page's name ("Home" / "Metadata") — nothing else. Centred horizontally and vertically in
+   the space under the navbar (`min-h` of the viewport minus the bar, `text-5xl font-bold
+   text-slate-300`-style muted tone to fit our theme). No DAG-run filter form, no cards.
+7. **Layout: content stays centred** in `max-w-6xl` as today (user decision). Only the navbar is
+   restyled to match theirs. The navbar's gradient spans the full width; its inner row is
+   full-width (`px-8`, brand at the far left and menu at the far right) as in their screenshot,
+   while page content below stays centred. (If the brand/menu should instead sit inside the same
+   `max-w-6xl` column as the content, that is a one-class change — flag it when reviewing.)
+8. **Calendar pages and the Calendars/Create sub-tabs keep their existing slate theme and styling**
+   (user decision) — nothing inside the calendar pages changes. Only the main menu (navbar) takes the
+   host's dark gradient, indigo active pill and typography.
+
+## Implementation steps (all done ✅)
+
+1. `features/navigation/paths.ts` (new): `BASE_PATH = "/controlPlane"` plus the derived paths
+   (`HOME`, `METADATA`, `CALENDAR`, `CALENDARS`, `CREATE`) used everywhere below.
+2. `features/navigation/Navbar.tsx` (new): brand, `NavLink` items (`Home`, `Metadata`, `Calendar`),
+   user badge / Sign out; signed-out shows the brand only.
+3. `features/calendars/CalendarSection.tsx` (new): move the sub-tab strip + nested `Routes` here.
+4. `features/home/HomePage.tsx`, `features/metadata/MetadataPage.tsx` (new): big centred page-name
+   placeholders.
+5. `features/navigation/TabsProvider.tsx`: use the path constants for the two sub-tabs.
+6. `App.tsx`: render `Navbar`, `RequireAuth`, the prefixed top-level routes and the legacy
+   redirects; drop the old header and `TabbedPages`; sign-out → Home.
+7. `features/auth/LoginPage.tsx` (or `AuthProvider`): after a successful sign-in, navigate to Home.
+8. `index.html`: page `<title>` → "Control Plane".
+9. Docs: `apps/web/README.md` / feature READMEs where they describe the nav or routes.
+
+## Verification plan — results ✅
+
+Result: all items below were run in the live browser and passed. The two bugs found (390px navbar
+overflow, duplicate "Calendar" accessible name) were fixed and re-tested; details are in
+"Implementation notes".
+
+- `npx tsc -b` clean. ✅
+- Visual: screenshot against the reference — gradient, height, shadow, brand colours, indigo active
+  pill and spacing; sample the rendered colours back (`#0f172b`→`#314158`, `#625fff`). Confirm the
+  Calendars/Create tabs and calendar pages look exactly as before (slate theme, centred column) and
+  that Home/Metadata show only the big centred page name. ✅ (rendered bar 62px, pill 30px; computed
+  colours are the sampled Tailwind tokens)
+- Browser: each menu item changes content and URL under `/controlPlane`; sub-tabs appear only under
+  `Calendar`; clicking `Calendar` from Home/Metadata lands on `Calendars`; sub-tab switching still
+  works; legacy URLs (`/`, `/calendars`, `/create`, `/preview`, unknown) redirect to the prefixed
+  ones; back/forward; reload on every route; signed-out bar shows brand only; sign-in and sign-out
+  both land on Home. ✅ (27 checks in the navigation suite, all passing)
+- Re-run the full e2e suite (auth, calendars, create/upload, roles) against the new routes, plus a
+  narrow-viewport check that the navbar doesn't overflow at 390px. ✅ (calendars, create, merge and
+  roles pass; the 390px overflow it found was fixed and re-tested on all four routes)
+
+## Decisions made (product answers)
+
+1. **Home / Metadata** — placeholders only: a big page name in the middle of the page.
+2. **Labels** — follow the request: `Home`, `Metadata`, `Calendar` (not the screenshot's labels).
+3. **Accent colour** — calendar pages and their tabs keep our existing slate theme; only the main
+   menu takes the host's style and colour scheme.
+4. **Content width** — stays centred (`max-w-6xl`).
+5. **After sign-in / sign-out** — land on Home.
+6. **URL prefix** — yes, all our routes live under `/controlPlane`.
+
+## Implementation notes (what differed from the plan)
+
+- Navbar is **62px tall with a 30px pill**, matching the reference after tightening the item
+  line-height (`leading-[18px]`); colours are the exact Tailwind tokens sampled from the screenshot.
+- **Mobile fix found in testing:** at 390px the brand + 3 items + user badge overflowed (scroll width
+  544px). The bar now wraps (`flex-wrap`, `px-4 sm:px-8`, divider only from `sm`); no overflow on any
+  route.
+- **Accessible name fix found in testing:** the sub-tab `tablist` is labelled "Calendar sections"
+  (not "Calendar"), so it no longer collides with the "Calendar" label on the upload-target select.
+- Sign-in navigates to Home from `LoginPage` after a successful `signIn`; sign-out navigates from
+  the navbar's user badge.
+
+## Out of scope
+
+Real Home/Metadata features, embedding mechanics beyond the route prefix (iframe / module
+federation / Vite `base`), the host's auth, restyling calendar-page content, and refreshing the old
+screenshots in `docs/`.
+
+---
+
+# Previous task (DONE): replace the nav bar with in-page tabs (URL kept in sync with the active tab)
 
 Status: **Implemented and verified in the browser** (`npx tsc -b` clean).
 

@@ -13,7 +13,10 @@ authentication" — from an accepted risk into a non-issue, for roughly zero ext
 ```
 src/
 ├── features/              Vertical slices. Most work happens here.
-│   ├── calendars/         Create, list, detail, month grid
+│   ├── navigation/        Main navbar, route paths (BASE_PATH), calendar sub-tab context
+│   ├── home/              Home page (placeholder)
+│   ├── metadata/          Metadata page (placeholder)
+│   ├── calendars/         Create, list, detail, month grid, Calendar section (sub-tabs)
 │   ├── dag-runs/          Control plane view
 │   └── auth/              Login, password change
 ├── components/ui/         shadcn/ui primitives. Generated, rarely hand-edited.
@@ -25,6 +28,27 @@ src/
 
 Organised by **feature**, not by file type. A change to the calendar editor should touch one
 directory, not five.
+
+## Navigation and routes
+
+The UI is meant to be embedded in the Control Plane dashboard, so the navbar mirrors theirs: a dark
+gradient bar titled **Control Plane** with three menu items — **Home**, **Metadata**, **Calendar**.
+The Calendars / Create sub-tabs exist only inside **Calendar**.
+
+All routes live under one prefix, `BASE_PATH` (`/controlPlane`), defined once in
+`src/features/navigation/paths.ts`:
+
+| URL | Page |
+|---|---|
+| `/controlPlane` | Home |
+| `/controlPlane/metadata` | Metadata |
+| `/controlPlane/calendar` | redirects to `/controlPlane/calendar/calendars` |
+| `/controlPlane/calendar/calendars` | Calendar → Calendars tab |
+| `/controlPlane/calendar/create` | Calendar → Create tab |
+
+Older URLs (`/`, `/calendars`, `/create`, `/preview`) and unknown paths redirect to the matching new
+URL or to Home. Signing in or out lands on Home. Home and Metadata are placeholders until the host
+apps provide their content.
 
 ## Generate the API client, do not hand-write it
 
