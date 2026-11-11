@@ -50,18 +50,31 @@ export default function Navbar() {
         <span className="text-xl font-bold text-white">
           Control <span className="text-indigo-400">Plane</span>
         </span>
-        {user && (
-          <div className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-2">
-            <nav aria-label="Main" className="flex items-center gap-1.5">
-              {ITEMS.map(({ to, label, end }) => (
-                <NavLink key={to} to={to} end={end} className={itemClass}>
-                  {label}
-                </NavLink>
-              ))}
-            </nav>
-            <UserBadge />
-          </div>
-        )}
+         {user && (
+      <>
+        {/* Navigation beside Control Plane */}
+        <nav
+          aria-label="Main"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {ITEMS.map(({ to, label, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={itemClass}
+            >
+              {label}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* User badge stays on the right */}
+        <div className="ml-auto">
+          <UserBadge />
+        </div>
+      </>
+    )}
       </div>
     </header>
   );

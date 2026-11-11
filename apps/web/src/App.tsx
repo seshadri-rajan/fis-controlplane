@@ -26,7 +26,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Navbar />
 
-      <main className="mx-auto max-w-6xl px-6 py-8">
+      <main className="w-full max-w-none px-6 py-8">
         <RequireAuth>
           <Routes>
             <Route path={HOME_PATH} element={<HomePage />} />
