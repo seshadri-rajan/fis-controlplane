@@ -6,3 +6,5 @@ export const METADATA_PATH = `${BASE_PATH}/metadata`;
 export const CALENDAR_PATH = `${BASE_PATH}/calendar`;
 export const CALENDARS_PATH = `${CALENDAR_PATH}/calendars`;
 export const CREATE_PATH = `${CALENDAR_PATH}/create`;
+export const amendPath = (calendarName: string) =>
+  `${CALENDARS_PATH}/${encodeURIComponent(calendarName)}/amend`;

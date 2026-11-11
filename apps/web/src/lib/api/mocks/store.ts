@@ -1,13 +1,13 @@
 import { DAY_NAMES } from "../proposed";
-import type { CalendarPreviewRequest } from "../proposed";
+import type { CalendarPreviewRequest, CalendarStatusFields } from "../proposed";
 import type { components } from "../spec";
 import { generatePreview } from "./ruleEngine";
 
-type Calendar = components["schemas"]["Calendar"];
+type Calendar = components["schemas"]["Calendar"] & CalendarStatusFields;
 type Rule = Omit<CalendarPreviewRequest, "year">;
 
 // Bumped when the demo data changes, so a tab that kept an older copy picks up the new seed.
-const STORE_KEY = "msw-mock-calendars-v2";
+const STORE_KEY = "msw-mock-calendars-v3";
 
 const thisYear = new Date().getFullYear();
 const WEEKDAYS = DAY_NAMES.slice(0, 5);
@@ -145,6 +145,15 @@ const SEED: Calendar[] = [
     datesFor({ ...nyseWeekdays, dateRuleType: "WORKING_DAY", runDay: "5", dayOfWeek: undefined }),
     { createdBy: "admin", createdAt: at(2, 8) },
   ),
+  // Inactive on purpose: shows the badge, and that it cannot be amended or uploaded to.
+  {
+    ...fromUpload("Legacy-Month-End", lastOfEachMonth(datesFor(nyseWeekdays)), {
+      createdBy: "admin",
+      createdAt: at(7, 20),
+      updatedAt: at(1, 12),
+    }),
+    active: false,
+  },
   fromAutosys("AUTOSYS_US_BUSINESS", datesFor(nyseWeekdays), nyseWeekdays),
   fromAutosys("AUTOSYS_UK_BUSINESS", datesFor(ukWeekdays), ukWeekdays),
   fromAutosys("AUTOSYS_MONTH_END", lastOfEachMonth(datesFor(nyseWeekdays)), monthEnd),

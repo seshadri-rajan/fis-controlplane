@@ -18,12 +18,12 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | [API-002](#api-002-login-requires-a-bearer-token-to-obtain-a-bearer-token) | Medium | Open | Login itself requires a bearer token | Not sent |
 | [API-003](#api-003-no-logout-session-restore-or-expiry-contract) | Medium | Open | No logout, `/me` or expiry contract | Client-side session |
 | [API-004](#api-004-date-format-contradicts-itself) | High | Open | `DD-MM-YYYY` vs `YYYY-MM-DD` | `YYYY-MM-DD` |
-| [API-005](#api-005-holidaycalendar-is-required-but-has-no-source) | High | Open | `holidayCalendar` required, no list/default | Proposed `GET /v1/holiday-calendars` (mocked); uploads send `""` |
+| [API-005](#api-005-holidaycalendar-is-required-but-has-no-source) | High | Open | `holidayCalendar` required, no list/default | Uploads send `""`; the holiday dropdown is unused since rule-based create was removed (2026-11-06) |
 | [API-006](#api-006-no-way-to-list-or-create-autosys-migrated-calendars) | High | Open | Autosys migration flow undefined | `GET /calendars?migrated=true` |
 | [API-007](#api-007-new-calendar-from-a-file-takes-two-non-atomic-calls) | Medium | Open | Create-from-file is two calls | `POST` with `dates: []`, then upload |
 | [API-008](#api-008-upload-accepts-csv-only) | Medium | Open | No Excel upload | CSV only, UI rejects `.xlsx` |
-| [API-009](#api-009-rule-fields-are-underspecified-and-adjustment-action-is-missing) | Blocker | Open | Rule composition + adjustment action | Rule fields mapped; no adjustment action |
-| [API-010](#api-010-no-way-to-preview-or-generate-dates-from-rules) | Blocker | Open | No preview / date generation | Proposed `POST /v1/calendars/preview` (mocked) |
+| [API-009](#api-009-rule-fields-are-underspecified-and-adjustment-action-is-missing) | Blocker | On hold | Rule composition + adjustment action | Unused: rule-based create was removed (2026-11-06) |
+| [API-010](#api-010-no-way-to-preview-or-generate-dates-from-rules) | Blocker | On hold | No preview / date generation | Unused: rule-based create was removed (2026-11-06) |
 | [API-011](#api-011-approval-workflow-is-absent) | Blocker | Open | Approval (four-eyes) workflow absent | Not built |
 | [API-012](#api-012-role-permissions-are-undefined-for-approver-and-uploader) | High | Open | APPROVER / UPLOADER permissions | UPLOADER and APPROVER are read-only |
 | [API-013](#api-013-who-may-delete-a-calendar-contradicts-itself) | Medium | Open | Delete permission contradiction | Not built |
@@ -33,12 +33,15 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | [API-017](#api-017-no-first-login-forced-password-change-or-lockout-signal) | Medium | Open | Forced password change / lockout | Not handled |
 | [API-018](#api-018-spec-typos-and-inconsistencies) | Low | Open | Typos and inconsistencies | None |
 | [API-019](#api-019-deployment-origin-and-cors) | Low | Open | Same-origin or CORS? | Relative `/v1` |
-| [API-020](#api-020-extended-rule-catalog-endpoint-is-missing-and-the-rule-table-is-ambiguous) | Blocker | Open | No rule-catalog endpoint; rule table ambiguous | Proposed `GET /v1/rules` (mocked) |
+| [API-020](#api-020-extended-rule-catalog-endpoint-is-missing-and-the-rule-table-is-ambiguous) | Blocker | On hold | No rule-catalog endpoint; rule table ambiguous | Unused: rule-based create was removed (2026-11-06) |
 | [API-021](#api-021-how-many-years-of-dates-a-calendar-holds-and-who-extends-them) | Medium | Open | Date horizon / who extends | One year per calendar |
 | [API-022](#api-022-calendar-has-no-description-and-no-way-to-rename) | Low | Open | No description field | Field removed from the form |
 | [API-023](#api-023-upload-replaces-all-dates-so-a-calendar-cannot-be-built-up-one-year-at-a-time) | High | Open | Upload replaces all dates | UI merges other years client-side (to confirm with team) |
 | [API-024](#api-024-no-way-to-list-calendars-created-by-upload-and-the-uploaded-flag-is-ambiguous) | Medium | Open | No `uploaded` filter; flag ambiguous | Filtered on the client |
 | [API-025](#api-025-no-change-history-or-updated-by-for-a-calendar) | Medium | Open | No change history / `updatedBy` | Audit table dropped |
+| [API-026](#api-026-calendars-cannot-be-activated-or-deactivated) | High | Open | No calendar active/inactive status | Proposed `active` field + activate/deactivate (ADMIN only), mocked |
+| [API-027](#api-027-dates-before-today-must-be-read-only-but-nothing-enforces-it) | High | Open | Past dates must be read-only | Locked in the UI; mock enforces; browser-local "today" |
+| [API-028](#api-028-update-is-replace-all-and-its-contract-contradicts-itself) | Medium | Open | `update` is replace-all, `calendarName` contradiction | Read-modify-write with every field echoed |
 
 ---
 
@@ -176,14 +179,14 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Requirements:** `RECORD.md` D-10: four-eyes gate behind `approval_required`, with a `calendar_change_request` table.
 - **Spec:** Role `APPROVER` exists, but there is no approval queue, detail, approve or reject operation. Mutations return 201/200, with no 202 "pending" outcome. (The previous backend returned 202 plus a change request.)
 - **Ask:** Provide the endpoints and contracts: list pending, change detail/diff, approve, reject (with reason). Say how create, update, upload and delete signal "pending approval", and how the UI learns whether the gate is on.
-- **UI assumption:** Not built. Saves are treated as applied immediately.
+- **UI assumption:** Not built. Saves are treated as applied immediately. Amending a calendar's dates and changing its status (API-026) are the changes most likely to need the gate.
 
 ### API-012: Role permissions are undefined for APPROVER and UPLOADER
 - **Severity / status:** High · Open · raised 2026-11-04
 - **Spec:** `UserRole` documents only ADMIN, EDITOR, VIEWER. `UserRole` is an array, so a user can hold several roles, with no rule for combining them. Calendar create/update/upload say "EDITOR or ADMIN", so it is unclear whether UPLOADER may upload.
 - **Requirements:** `RECORD.md` lists different roles (Viewer, Admin, Create, Approver).
 - **Ask:** State the exact permissions of APPROVER and UPLOADER. Are multiple roles a union? Can one person both edit and approve the same change?
-- **UI assumption:** `has(role)` passes for the exact role or ADMIN. Upload and create need EDITOR or ADMIN. UPLOADER and APPROVER get read-only screens.
+- **UI assumption:** `has(role)` passes for the exact role or ADMIN. Upload, create and amend need EDITOR or ADMIN. Activating and deactivating a calendar need ADMIN (decided 2026-11-11, see API-026). UPLOADER and APPROVER get read-only screens.
 
 ### API-013: Who may delete a calendar contradicts itself
 - **Severity / status:** Medium · Open · raised 2026-11-05
@@ -247,7 +250,7 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Impact:** With year-scoped uploads (API-021), uploading 2027 dates to a calendar that already holds 2026 dates deletes the 2026 dates. A calendar covering two years needs one file with both years, but the UI saves a single selected year.
 - **Ask:** Confirm replace-all is intended. If calendars should hold several years, add an append / merge mode (or a `year` parameter that replaces only that year).
 - **Question to confirm with the team:** when a user uploads dates for one year to a calendar that already has dates, should the upload replace only that year's dates and keep the other years, or replace the whole calendar? We assumed the former for now (decided in review 2026-11-05), but the backend team has not confirmed it, and the spec's replace-all behaviour says otherwise.
-- **UI assumption:** For "Upload dates" (existing or migrated calendar) the UI works around replace-all on the client. At save time it reads the calendar's current dates with `GET /v1/calendars/{name}/dates`, drops the selected year's dates, adds the file's dates for that year, and uploads the combined set as a CSV. The screen says so: "Uploading replaces its N dates in 2026. Its M dates in other years are kept." This read-modify-write is not atomic: two people uploading at once can overwrite each other, which is the reason to ask the backend for a per-year or append mode. A new calendar just uploads the selected year.
+- **UI assumption:** For "Upload dates" (existing or migrated calendar) and Amend, the UI works around replace-all on the client. Since 2026-11-11 it does this through `update` (API-028) instead of a CSV upload: it reads the calendar fresh, keeps the past and the other years, replaces the selected year's editable dates with the user's selection, and sends the whole calendar back. This read-modify-write is not atomic: two people saving at once can overwrite each other, which is the reason to ask the backend for a per-year or append mode. A new calendar just uploads the selected year.
 
 ### API-022: Calendar has no description (and no way to rename)
 - **Severity / status:** Low · Open · raised 2026-11-05
@@ -267,7 +270,47 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Spec:** `Calendar` has `createdBy`, `createdAt` and `updatedAt`, but no `updatedBy` and no history endpoint. The previous backend had `GET /calendars/{key}/history` (who changed what, and when), and the previous Calendars screen showed it as an "Audit history" table.
 - **Requirements:** `RECORD.md` section 11 (four-eyes) relies on an audit trail of each change and who made it.
 - **Ask:** Add `updatedBy` to `Calendar`, and a history endpoint (action, user, time, optionally the changed fields). Say whether approvals (API-011) appear in it.
-- **UI assumption:** The audit-history table was dropped from the Calendars page. The detail shows "Created: user · date" and "Last updated: date" only.
+- **UI assumption:** The audit-history table was dropped from the Calendars page. The detail shows "Created: user · date" and "Last updated: date" only. Amending and activating make this gap matter more: there is no record of who changed a calendar's dates or status.
+
+### API-026: Calendars cannot be activated or deactivated
+- **Severity / status:** High · Open · raised 2026-11-11
+- **Requirement (product, 2026-11-11):** An admin can deactivate a calendar and activate it again. An inactive calendar still appears in the Calendars list, but its dates cannot be amended or uploaded to until it is activated.
+- **Spec:** `Calendar` has no status field, and `CalendarWriteRequest` forbids extra properties, so a status can't ride on `update` either. Only users have `active`. (The previous backend had an `include_inactive` list parameter, so the idea existed there.)
+- **Proposed contract (not in the spec; contracts in `apps/web/src/lib/api/proposed.ts`):**
+  - `Calendar.active` (boolean, read-only; absent means active).
+  - `POST /v1/calendars/{calendar_name}/activate` and `.../deactivate`, ADMIN only, answering 200 with the `Calendar`. Repeating either is harmless.
+  - While inactive, `update` and `upload` answer 409 `CONFLICT`. Reads, the dates list and the list endpoint keep working.
+  - An `active` filter on `listCalendars`.
+- **Ask:**
+  1. Confirm the contract, or give the real one.
+  2. What does inactive mean for scheduling: do DAGs that reference the calendar fail, skip, or keep running on the stored dates? (`RECORD.md` warns a calendar with no future dates silently stops scheduling; an inactive one must not be a silent surprise.)
+  3. Is activating also ADMIN only? (The UI assumes yes: both actions are ADMIN only.)
+  4. Does a status change go through the approval gate (API-011), and does it appear in the history (API-025)?
+  5. Can an inactive calendar be deleted?
+- **UI assumption:** Calendars list: an "Inactive" badge and filter chip, Amend disabled, and Activate/Deactivate (ADMIN only, with a confirmation) in the detail. Upload dates leaves inactive calendars out of its dropdown and says how many were left out. Mocked in `apps/web/src/lib/api/mocks/handlers.ts`.
+
+### API-027: Dates before today must be read-only, but nothing enforces it
+- **Severity / status:** High · Open · raised 2026-11-11
+- **Requirement (product, 2026-11-11):** Past dates cannot be edited.
+- **Spec:** Silent. `update` and `upload` replace every date, so any client can add or remove history.
+- **Ask:**
+  1. Enforce it on the server: reject an update or upload that adds or removes a date before today (suggest 400 or 409 with a clear message), so the rule doesn't depend on this UI.
+  2. Which timezone is "today"? The UI uses the browser's local date, which can disagree with the server near midnight or across regions.
+  3. Is today itself editable? (The UI assumes yes: only dates strictly before today are locked.)
+  4. Does the rule apply to new calendars? (The UI does not lock them: a new calendar can be created from a file with past dates.)
+  5. How does a backend load or migrate historical dates if it can't write them?
+- **UI assumption:** For an existing calendar (Amend, and Upload dates onto an existing or migrated calendar) dates before today are shown but not clickable, and past dates in an uploaded file are left out with a note. A new calendar has no lock. The mock rejects changes to past dates on `update` with 400.
+
+### API-028: `update` is replace-all, and its contract contradicts itself
+- **Severity / status:** Medium · Open · raised 2026-11-11
+- **Spec:** `PATCH /calendars/{calendar_name}/update` "replaces all writable calendar fields" and its description says "the request body's calendarName must match the path calendar_name". But `CalendarWriteRequest` has no `calendarName` and sets `additionalProperties: false`, so sending it should fail validation and omitting it breaks the description. `PATCH` normally means a partial update, yet this one replaces everything.
+- **Impact:**
+  - Changing only the dates means sending the calendar's other fields back unchanged. Omitting one clears it (`dateRuleType`, `dayOfWeek`, `runDate`, `runDay`, `holidayRun`, `holidayOffset`).
+  - `holidayCalendar` is required, and calendars made by upload hold an empty one (API-005), so the call can fail for them.
+  - There is no version or ETag, so two people amending the same calendar overwrite each other without a warning (see API-023).
+  - It is unclear whether `uploaded` or `migrated` change after an update.
+- **Ask:** Make `calendarName` consistent (allowed and checked, or dropped from the description). Allow `holidayCalendar` to be empty or omitted. Add optimistic concurrency (`If-Match` with an ETag, or a `version` field, answering 412 or 409). Say what an update does to `uploaded`.
+- **UI assumption:** Amend, and Upload dates onto an existing calendar, read the calendar fresh, rebuild its dates (keeping the past and the other years), and send it back through `update` with every other field copied (`toWriteRequest` in `client.ts`). `calendarName` is not sent. Create a new calendar still uses create plus upload.
 
 ---
 
@@ -282,3 +325,4 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | 2026-11-05 | Upload dates now has Existing calendar / Migrated calendar sub-options (API-006). Uploading to an existing or migrated calendar replaces only the selected year and keeps the others, merged on the client; written up as a question for the team (API-023). Added API-024 (no `uploaded` filter, ambiguous flag). |
 | 2026-11-05 | Review change: the two sub-options under Upload dates were replaced by one combined "Calendar" dropdown with "Existing calendars" and "Migrated calendars" groups. No new spec issue; API-006 and API-024 reworded. |
 | 2026-11-05 | Calendars page moved onto the new spec with demo data (API-016 updated). Added API-025 (no change history or `updatedBy`; the audit table was dropped). |
+| 2026-11-11 | Amend and activate/deactivate. Added API-026 (no calendar status; activate/deactivate proposed, ADMIN only), API-027 (past dates must be read-only; no server rule), API-028 (`update` is replace-all and its `calendarName` text contradicts the schema). API-011, API-012, API-023 and API-025 updated. API-005, API-009, API-010 and API-020 put on hold: rule-based create was removed on 2026-11-06, so the UI no longer uses the holiday-calendar list, rule catalog or preview. |

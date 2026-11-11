@@ -65,3 +65,17 @@ export type CalendarPreviewResponse = {
   dates: string[];
   holidays: Array<{ date: string; name: string }>;
 };
+
+/**
+ * Proposed (API-026): calendar lifecycle status. The spec's `Calendar` has no status field, and the
+ * write schemas forbid extra properties, so this is a read field changed only through the two
+ * ADMIN-only endpoints below. A missing value means active.
+ *
+ *   POST /v1/calendars/{calendar_name}/activate    -> 200 Calendar
+ *   POST /v1/calendars/{calendar_name}/deactivate  -> 200 Calendar
+ *
+ * While inactive, `update` and `upload` answer 409 CONFLICT. Reads and the list still work.
+ */
+export type CalendarStatusFields = { active?: boolean };
+
+export const isActive = (calendar: CalendarStatusFields): boolean => calendar.active !== false;

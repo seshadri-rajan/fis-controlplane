@@ -129,6 +129,8 @@ type ToggleProps = {
   /** The target calendar's own dates for this year, if any ("Upload dates" mode only). */
   existingDates: Set<string>;
   onToggleDate: (iso: string) => void;
+  /** Dates before this day are history: shown, but not clickable. */
+  lockedBefore?: string;
 };
 
 function Month({
@@ -163,6 +165,18 @@ function Month({
 
           if (toggle) {
             const isIncluded = toggle.included.has(iso);
+            if (toggle.lockedBefore !== undefined && iso < toggle.lockedBefore) {
+              return (
+                <div
+                  key={iso}
+                  aria-disabled="true"
+                  title={`${iso} — Past date${isIncluded ? ", on the calendar" : ""}; it can't be changed`}
+                  className={`rounded py-1 ${isIncluded ? "bg-slate-300 font-medium text-slate-600" : "text-slate-300"}`}
+                >
+                  {i + 1}
+                </div>
+              );
+            }
             const inFile = toggle.fileDates.has(iso);
             const inExisting = toggle.existingDates.has(iso);
             // A day with an origin (file or existing) that's currently excluded gets an "X"
@@ -214,6 +228,7 @@ export default function MonthGrid({
   fileDates,
   existingDates,
   onToggleDate,
+  lockedBefore,
 }: {
   year: number;
   dates?: GridDate[];
@@ -224,11 +239,19 @@ export default function MonthGrid({
   /** "Upload dates" mode only; omit (or leave empty) for "New calendar". */
   existingDates?: Set<string>;
   onToggleDate?: (iso: string) => void;
+  /** ISO day: everything before it is locked in toggle mode (existing calendars only). */
+  lockedBefore?: string;
 }) {
   const index = indexDates(dates, holidays);
   const toggle =
     included && fileDates && onToggleDate
-      ? { included, fileDates, existingDates: existingDates ?? new Set<string>(), onToggleDate }
+      ? {
+          included,
+          fileDates,
+          existingDates: existingDates ?? new Set<string>(),
+          onToggleDate,
+          lockedBefore,
+        }
       : undefined;
 
   return (

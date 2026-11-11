@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 
-import { getCalendarDates, listCalendars } from "../../lib/api/client";
-import type { SpecCalendar } from "../../lib/api/client";
+import { getCalendarDates, listCalendars, setCalendarActive } from "../../lib/api/client";
+import type { ApiError, SpecCalendar } from "../../lib/api/client";
+import { isActive } from "../../lib/api/proposed";
+import { useAuth } from "../auth/AuthProvider";
+import { amendPath } from "../navigation/paths";
 import { useTabs } from "../navigation/TabsProvider";
 import { field, label } from "./formStyles";
 import MonthGrid, { Legend } from "./MonthGrid";
 
 type Kind = "rules" | "uploaded" | "migrated";
-type Filter = "all" | Kind;
+type Filter = "all" | Kind | "inactive";
 
 const KIND_LABEL: Record<Kind, string> = {
   rules: "Rule-based",
@@ -27,6 +31,7 @@ const FILTERS: Array<[Filter, string]> = [
   ["rules", KIND_LABEL.rules],
   ["uploaded", KIND_LABEL.uploaded],
   ["migrated", KIND_LABEL.migrated],
+  ["inactive", "Inactive"],
 ];
 
 const kindOf = (calendar: SpecCalendar): Kind =>
@@ -65,10 +70,14 @@ const formatDate = (iso: string | undefined) =>
 
 export default function CalendarsPage() {
   const { setTab } = useTabs();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { has } = useAuth();
   const [selected, setSelected] = useState<string | null>(null);
   const [yearChoice, setYearChoice] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [confirming, setConfirming] = useState(false);
 
   const calendars = useQuery({ queryKey: ["calendars", "all"], queryFn: listCalendars });
 
@@ -78,20 +87,40 @@ export default function CalendarsPage() {
     enabled: selected !== null,
   });
 
+  const toggleActive = useMutation({
+    mutationFn: ({ name, active }: { name: string; active: boolean }) =>
+      setCalendarActive(name, active),
+    onSuccess: () => {
+      setConfirming(false);
+      queryClient.invalidateQueries({ queryKey: ["calendars"] });
+    },
+  });
+
   const current = calendars.data?.find((c) => c.calendarName === selected) ?? null;
+  // Amending needs EDITOR; changing a calendar's status is ADMIN only (has() treats ADMIN as a superset).
+  const canAmend = has("EDITOR");
+  const canToggle = has("ADMIN");
 
   const counts = useMemo(() => {
-    const result: Record<Filter, number> = { all: 0, rules: 0, uploaded: 0, migrated: 0 };
+    const result: Record<Filter, number> = {
+      all: 0,
+      rules: 0,
+      uploaded: 0,
+      migrated: 0,
+      inactive: 0,
+    };
     for (const calendar of calendars.data ?? []) {
       result.all += 1;
       result[kindOf(calendar)] += 1;
+      if (!isActive(calendar)) result.inactive += 1;
     }
     return result;
   }, [calendars.data]);
 
   const visible = (calendars.data ?? []).filter(
     (calendar) =>
-      (filter === "all" || kindOf(calendar) === filter) &&
+      (filter === "all" ||
+        (filter === "inactive" ? !isActive(calendar) : kindOf(calendar) === filter)) &&
       (calendar.calendarName ?? "").toLowerCase().includes(search.trim().toLowerCase()),
   );
 
@@ -113,7 +142,7 @@ export default function CalendarsPage() {
       <div>
         <h1 className="text-xl font-semibold">Calendars</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Browse stored calendars and the dates they run on. Editing is not available yet.
+          Browse stored calendars and the dates they run on. Select one to amend its dates.
         </p>
       </div>
 
@@ -178,17 +207,30 @@ export default function CalendarsPage() {
                     onClick={() => {
                       setSelected(name);
                       setYearChoice(null);
+                      setConfirming(false);
+                      toggleActive.reset();
                     }}
                     className={`w-full rounded-lg border p-3 text-left ${
                       name === selected
                         ? "border-slate-900 bg-white"
-                        : "border-slate-200 bg-white hover:border-slate-400"
-                    }`}
+                        : "border-slate-200 hover:border-slate-400"
+                    } ${isActive(calendar) ? "bg-white" : "bg-slate-50"}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="truncate font-medium">{name}</span>
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kind]}`}>
-                        {KIND_LABEL[kind]}
+                      <span
+                        className={`truncate font-medium ${isActive(calendar) ? "" : "text-slate-500"}`}
+                      >
+                        {name}
+                      </span>
+                      <span className="flex shrink-0 gap-1">
+                        {!isActive(calendar) && (
+                          <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+                            Inactive
+                          </span>
+                        )}
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kind]}`}>
+                          {KIND_LABEL[kind]}
+                        </span>
                       </span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
@@ -224,9 +266,89 @@ export default function CalendarsPage() {
                 <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kindOf(current)]}`}>
                   {KIND_LABEL[kindOf(current)]}
                 </span>
+                {!isActive(current) && (
+                  <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
+                    Inactive
+                  </span>
+                )}
+
+                {(canAmend || canToggle) && (
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    {canAmend && (
+                      <button
+                        type="button"
+                        disabled={!isActive(current)}
+                        title={isActive(current) ? undefined : "Activate this calendar to amend it"}
+                        onClick={() => navigate(amendPath(current.calendarName ?? ""))}
+                        className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+                      >
+                        Amend dates
+                      </button>
+                    )}
+                    {canToggle && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        {isActive(current) ? "Deactivate" : "Activate"}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
+              {!isActive(current) && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Inactive: its dates can’t be amended or uploaded to until it is activated again.
+                  {!canToggle && " Only an admin can activate it."}
+                </p>
+              )}
+
+              {confirming && (
+                <div role="group" aria-label="Confirm status change" className="mt-3 rounded-md bg-amber-50 p-3 text-sm text-amber-900">
+                  <p>
+                    {isActive(current)
+                      ? `Deactivate ${current.calendarName}? Its dates can't be amended or uploaded to until it is activated again. It stays in this list.`
+                      : `Activate ${current.calendarName}? Its dates can be amended and uploaded to again.`}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={toggleActive.isPending}
+                      onClick={() =>
+                        toggleActive.mutate({
+                          name: current.calendarName ?? "",
+                          active: !isActive(current),
+                        })
+                      }
+                      className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-40"
+                    >
+                      {toggleActive.isPending
+                        ? "Saving…"
+                        : isActive(current)
+                          ? "Yes, deactivate"
+                          : "Yes, activate"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirming(false)}
+                      className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {toggleActive.isError && (
+                <p role="alert" className="mt-3 rounded-md bg-rose-50 p-2 text-sm text-rose-800">
+                  {(toggleActive.error as ApiError).message}
+                </p>
+              )}
+
               <dl className="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <Detail term="Status" value={isActive(current) ? "Active" : "Inactive"} />
                 <Detail term="Schedule" value={scheduleOf(current)} />
                 <Detail term="Holidays" value={holidayHandlingOf(current)} />
                 <Detail

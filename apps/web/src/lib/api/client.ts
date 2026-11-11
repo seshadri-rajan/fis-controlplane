@@ -1,6 +1,7 @@
 import type {
   CalendarPreviewRequest,
   CalendarPreviewResponse,
+  CalendarStatusFields,
   HolidayCalendarOption,
   RuleDefinition,
 } from "./proposed";
@@ -8,8 +9,9 @@ import type { components as specComponents } from "./spec";
 
 type SpecUser = specComponents["schemas"]["User"];
 type SpecLoginRequest = specComponents["schemas"]["LoginRequest"];
-export type SpecCalendar = specComponents["schemas"]["Calendar"];
+export type SpecCalendar = specComponents["schemas"]["Calendar"] & CalendarStatusFields;
 export type SpecCalendarCreate = specComponents["schemas"]["CalendarCreateRequest"];
+export type SpecCalendarWrite = specComponents["schemas"]["CalendarWriteRequest"];
 
 /**
  * UI-owned session user. Adapted from the new backend's `User` so components do not
@@ -142,6 +144,45 @@ export async function listUploadedCalendars(): Promise<SpecCalendar[]> {
 
 export function getCalendarDates(calendarName: string): Promise<string[]> {
   return request<string[]>(`/v1/calendars/${encodeURIComponent(calendarName)}/dates`);
+}
+
+export function getCalendar(calendarName: string): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}`);
+}
+
+/**
+ * The spec's update replaces every writable field (API-028), so an edit of the dates alone must
+ * send the calendar's other fields back unchanged or they are wiped.
+ */
+export function toWriteRequest(calendar: SpecCalendar, dates: string[]): SpecCalendarWrite {
+  return {
+    dates,
+    holidayCalendar: calendar.holidayCalendar ?? "",
+    ...(calendar.dateRuleType !== undefined && { dateRuleType: calendar.dateRuleType }),
+    ...(calendar.dayOfWeek !== undefined && { dayOfWeek: calendar.dayOfWeek }),
+    ...(calendar.runDate !== undefined && { runDate: calendar.runDate }),
+    ...(calendar.runDay !== undefined && { runDay: calendar.runDay }),
+    ...(calendar.holidayRun !== undefined && { holidayRun: calendar.holidayRun }),
+    ...(calendar.holidayOffset !== undefined && { holidayOffset: calendar.holidayOffset }),
+  };
+}
+
+export function updateCalendar(
+  calendarName: string,
+  body: SpecCalendarWrite,
+): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/update`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Proposed endpoints, ADMIN only (API-026). */
+export function setCalendarActive(calendarName: string, active: boolean): Promise<SpecCalendar> {
+  const action = active ? "activate" : "deactivate";
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/${action}`, {
+    method: "POST",
+  });
 }
 
 export function createSpecCalendar(body: SpecCalendarCreate): Promise<SpecCalendar> {

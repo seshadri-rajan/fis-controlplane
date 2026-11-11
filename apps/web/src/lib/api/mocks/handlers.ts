@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
+import { isPastDate, todayIso } from "../../dates";
 import { MAX_UPLOAD_BYTES, parseDatesCsv } from "../parseDatesCsv";
-import type { CalendarPreviewRequest } from "../proposed";
+import type { CalendarPreviewRequest, CalendarStatusFields } from "../proposed";
 import type { components } from "../spec";
 import { generatePreview, HOLIDAY_CALENDARS, RULES, validatePreview } from "./ruleEngine";
 import { loadCalendars, saveCalendars } from "./store";
@@ -8,8 +9,9 @@ import { loadCalendars, saveCalendars } from "./store";
 type User = components["schemas"]["User"];
 type LoginRequest = components["schemas"]["LoginRequest"];
 type ErrorResponse = components["schemas"]["ErrorResponse"];
-type Calendar = components["schemas"]["Calendar"];
+type Calendar = components["schemas"]["Calendar"] & CalendarStatusFields;
 type CalendarCreateRequest = components["schemas"]["CalendarCreateRequest"];
+type CalendarWriteRequest = components["schemas"]["CalendarWriteRequest"];
 
 /** All mock accounts accept this password. */
 export const MOCK_PASSWORD = "password123";
@@ -46,6 +48,27 @@ function authenticate(request: Request, roles?: string[]): Session {
 const WRITE_ROLES = ["EDITOR", "ADMIN"];
 const CALENDAR_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const INACTIVE_MESSAGE = "This calendar is inactive. Activate it before changing its dates";
+
+/**
+ * Proposed (API-026): ADMIN-only activate / deactivate. Repeating either is harmless, so the
+ * answer is the same whether or not the status changed.
+ */
+const activation = (action: "activate" | "deactivate", active: boolean) =>
+  http.post(`/v1/calendars/:name/${action}`, ({ request, params }) => {
+    const session = authenticate(request, ["ADMIN"]);
+    if ("failure" in session) return session.failure;
+
+    const calendars = loadCalendars();
+    const index = calendars.findIndex((c) => c.calendarName === params.name);
+    if (index === -1) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+
+    const updated: Calendar = { ...calendars[index], active, updatedAt: new Date().toISOString() };
+    calendars[index] = updated;
+    saveCalendars(calendars);
+    return HttpResponse.json(updated);
+  });
 
 // The spec's server root is /v1. Login is stateless: the spec has no /me or /logout.
 export const handlers = [
@@ -105,6 +128,83 @@ export const handlers = [
     return HttpResponse.json([...(calendar.dates ?? [])].sort());
   }),
 
+  http.get("/v1/calendars/:name", ({ request, params }) => {
+    const session = authenticate(request);
+    if ("failure" in session) return session.failure;
+
+    const calendar = loadCalendars().find((c) => c.calendarName === params.name);
+    if (!calendar) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+    return HttpResponse.json(calendar);
+  }),
+
+  http.patch("/v1/calendars/:name/update", async ({ request, params }) => {
+    const session = authenticate(request, WRITE_ROLES);
+    if ("failure" in session) return session.failure;
+
+    const calendars = loadCalendars();
+    const index = calendars.findIndex((c) => c.calendarName === params.name);
+    if (index === -1) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+    const current = calendars[index];
+    if (current.active === false) return error(409, "CONFLICT", INACTIVE_MESSAGE);
+
+    const body = (await request.json().catch(() => null)) as
+      | (Partial<CalendarWriteRequest> & { calendarName?: string })
+      | null;
+    if (!body || !Array.isArray(body.dates) || typeof body.holidayCalendar !== "string") {
+      return error(400, "BAD_REQUEST", "dates and holidayCalendar are required");
+    }
+    if (body.calendarName !== undefined && body.calendarName !== params.name) {
+      return error(400, "BAD_REQUEST", "calendarName must match the calendar in the path");
+    }
+    if (body.holidayCalendar !== "" && !HOLIDAY_CALENDARS.some((h) => h.name === body.holidayCalendar)) {
+      return error(400, "BAD_REQUEST", `Unknown holidayCalendar "${body.holidayCalendar}"`);
+    }
+    if (body.dates.some((d) => !ISO_DATE.test(d)) || new Set(body.dates).size !== body.dates.length) {
+      return error(400, "BAD_REQUEST", "dates must be unique YYYY-MM-DD values");
+    }
+
+    // Proposed rule (API-027): history is read-only, so no date before today may be added or removed.
+    const before = new Set(current.dates ?? []);
+    const after = new Set(body.dates);
+    const today = todayIso();
+    const changedPast = [
+      ...[...before].filter((d) => !after.has(d)),
+      ...body.dates.filter((d) => !before.has(d)),
+    ]
+      .filter((d) => isPastDate(d, today))
+      .sort();
+    if (changedPast.length > 0) {
+      const more = changedPast.length > 1 ? ` and ${changedPast.length - 1} more` : "";
+      return error(400, "BAD_REQUEST", `Dates before ${today} cannot be changed (${changedPast[0]}${more})`);
+    }
+
+    // The spec's update replaces every writable field: anything the body omits is cleared.
+    const { calendarName, migrated, uploaded, active, createdBy, createdAt } = current;
+    const updated: Calendar = {
+      calendarName,
+      migrated,
+      uploaded,
+      active,
+      createdBy,
+      createdAt,
+      dates: [...body.dates].sort(),
+      holidayCalendar: body.holidayCalendar,
+      ...(body.dateRuleType !== undefined && { dateRuleType: body.dateRuleType }),
+      ...(body.dayOfWeek !== undefined && { dayOfWeek: body.dayOfWeek }),
+      ...(body.runDate !== undefined && { runDate: body.runDate }),
+      ...(body.runDay !== undefined && { runDay: body.runDay }),
+      ...(body.holidayRun !== undefined && { holidayRun: body.holidayRun }),
+      ...(body.holidayOffset !== undefined && { holidayOffset: body.holidayOffset }),
+      updatedAt: new Date().toISOString(),
+    };
+    calendars[index] = updated;
+    saveCalendars(calendars);
+    return HttpResponse.json(updated);
+  }),
+
+  activation("activate", true),
+  activation("deactivate", false),
+
   http.post("/v1/calendars", async ({ request }) => {
     const session = authenticate(request, WRITE_ROLES);
     if ("failure" in session) return session.failure;
@@ -156,6 +256,7 @@ export const handlers = [
     if (index === -1) {
       return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
     }
+    if (calendars[index].active === false) return error(409, "CONFLICT", INACTIVE_MESSAGE);
 
     const form = await request.formData().catch(() => null);
     const file = form?.get("file");

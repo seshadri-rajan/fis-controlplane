@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router";
 
 import { CALENDARS_PATH } from "../navigation/paths";
 import { TabsProvider, useTabs, type TabId } from "../navigation/TabsProvider";
+import AmendCalendarPage from "./AmendCalendarPage";
 import CalendarsPage from "./CalendarsPage";
 import CreateCalendarPage from "./CreateCalendarPage";
 
@@ -43,6 +44,7 @@ function CalendarTabs() {
         <Routes>
           <Route index element={<Navigate to={CALENDARS_PATH} replace />} />
           <Route path="calendars" element={<CalendarsPage />} />
+          <Route path="calendars/:name/amend" element={<AmendCalendarPage />} />
           <Route path="create" element={<CreateCalendarPage />} />
           <Route path="*" element={<Navigate to={CALENDARS_PATH} replace />} />
         </Routes>
