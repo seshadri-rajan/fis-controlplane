@@ -57,18 +57,14 @@ hand-maintained types will drift, and drift here means a UI that silently sends 
 
 ## Build order
 
-The create screen is a **preview that can be saved**, which is why it was built before any
-editing flow. You define a calendar, watch the generated dates appear on a month grid, and only
-then choose to create it. The same screen that settles how a rule should behave is the one that
-commits it.
+Calendars are created by **uploading a file** (a new calendar, or new dates for an existing or
+migrated one) and amended from the Calendars list. There is no rule-based creation: the product
+team removed it on 2026-11-06, so there is no rule form, preview or holiday-calendar picker.
+`features/calendars/README.md` describes the current flow.
 
-Previewing stays available without an account (O-32); only saving requires the Create role.
-
-**Editing an existing calendar is still blocked on S-13.** Creating is safe because the outcome
-is unambiguous either way: the API returns `201` when the change applies immediately, or `202`
-with a pending change request when the four-eyes gate is on (D-10), and the screen reports both.
-Editing needs a diff view, a pending queue and a reviewer screen, none of which can be designed
-until the client confirms what an approval actually approves.
+**Editing an existing calendar is still blocked on S-13** for the four-eyes (approval) flow. The
+amend screen applies changes directly against the mocked API until the client confirms what an
+approval actually approves.
 
 ## Stack
 

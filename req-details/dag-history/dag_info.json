@@ -1,0 +1,235 @@
+[
+    {
+        "tasks": [
+            {
+                "owner": null,
+                "comment": null,
+                "task_id": "start",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-10-02T06:30:37.767159-04:00",
+                    "start_date": "2026-10-02T06:30:37.767155-04:00"
+                },
+                "downstream": {
+					"source": "FFIO"
+                    "dag_id": null,
+                    "task_ids": [
+                        "trigger_child_1",
+                        "trigger_child_2"
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 1
+            },
+            {
+                "owner": null,
+                "comment": null,
+                "task_id": "trigger_child_1",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-10-02T06:30:54.645692-04:00",
+                    "start_date": "2026-10-02T06:30:50.321667-04:00"
+                },
+                "downstream": {
+					"source": "FFIO"
+                    "dag_id": "child_dag_1",
+                    "task_ids": [
+                        "end"
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 2
+            },
+            {
+                "owner": null,
+                "comment": null,
+                "task_id": "trigger_child_2",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-10-02T06:31:07.860102-04:00",
+                    "start_date": "2026-10-02T06:31:03.598778-04:00"
+                },
+                "downstream": {
+					"source": "AM"
+                    "dag_id": "child_dag_2",
+                    "task_ids": [
+                        "end"
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 2
+            },
+            {
+                "owner": null,
+                "comment": null,
+                "task_id": "end",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-10-02T06:31:08.3115-04:00",
+                    "start_date": "2026-10-02T06:31:08.311495-04:00"
+                },
+                "downstream": {
+					"source": "FFIO"
+                    "dag_id": null,
+                    "task_ids": [
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 3
+            }
+        ],
+		"source": "FFIO"
+        "dag_id": "parent_dag",
+        "dag_run": {
+            "state": "success",
+            "run_id": "manual__2026-10-02T10:30:37.678755+00:00",
+            "end_date": "2026-10-02T06:31:09.378788-04:00",
+            "start_date": "2026-10-02T06:30:37.741408-04:00",
+            "business_date": "2026-10-02",
+			"next_run": "2026-11-05T15:15:00-05:00"
+        },
+        "metadata": {
+            "slo": null,
+            "category": null,
+            "severity": null,
+            "critical_path": null,
+            "support_group": null,
+            "application_id": null
+        },
+        "upstream": [
+					"source": "AM"
+                    "dag_id": null,
+                    "task_ids": [
+                    ]		
+        ]
+    },
+    {
+        "tasks": [
+            {
+				"source": "AM"
+                "owner": "fpcmdbuu",
+                "comment": "Parent DAG - Main task",
+                "task_id": "parent_hello_world",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-08-06T14:34:27.72712-04:00",
+                    "start_date": "2026-08-06T14:34:10.036406-04:00"
+                },
+                "downstream": {
+					"source": "AM"
+                    "dag_id": null,
+                    "task_ids": [
+                        "trigger_child1",
+                        "trigger_child2"
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 1
+            },
+            {
+				"source": "AM"
+                "owner": null,
+                "comment": null,
+                "task_id": "trigger_child1",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-08-06T14:35:55.556011-04:00",
+                    "start_date": "2026-08-06T14:34:42.282253-04:00"
+                },
+                "downstream": {
+					"source": "AM"
+                    "dag_id": "child1",
+                    "task_ids": [
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 2
+            },
+            {
+				"source": "AM"
+                "owner": null,
+                "comment": null,
+                "task_id": "trigger_child2",
+                "execution": {
+                    "state": "success",
+                    "end_date": "2026-08-06T14:37:25.843114-04:00",
+                    "start_date": "2026-08-06T14:34:42.797143-04:00"
+                },
+                "downstream": {
+					"source": "AM"
+                    "dag_id": "child2",
+                    "task_ids": [
+                    ]
+                },
+                "configuration": {
+                    "command": "fmtwrp_main.ksh -j ${AUTO_JOB_NAME} -r 1",
+                    "profile": "/etldv/fpccmu/env/rpa/fpccmurpa_env.ksh",
+                    "hostname": "fdip-fmwk01",
+                    "task_type": "NexusSsmRunCommandOperator",
+                    "timeout_seconds": 3600
+                },
+                "hierarchy_level": 2
+            }
+        ],
+		"source": "FFIO"
+        "dag_id": "parent_dag1",
+        "dag_run": {
+            "state": "success",
+            "run_id": "manual__2026-08-06T18:33:52.517358+00:00",
+            "end_date": "2026-08-06T14:37:26.049985-04:00",
+            "start_date": "2026-08-06T14:33:53.496099-04:00",
+            "business_date": "2026-08-06",
+			"next_run": "2026-11-05T15:15:00-05:00"
+        },
+        "metadata": {
+            "slo": null,
+            "category": null,
+            "severity": null,
+            "critical_path": null,
+            "support_group": null,
+            "application_id": null
+        },
+        "upstream": [
+					"source": "AM"
+                    "dag_id": null,
+                    "task_ids": [
+                    ]			
+        ]
+    }
+]

@@ -1,27 +1,53 @@
-import { DAY_NAMES } from "../proposed";
-import type { CalendarPreviewRequest, CalendarStatusFields } from "../proposed";
+import type { CalendarStatusFields } from "../proposed";
 import type { components } from "../spec";
-import { generatePreview } from "./ruleEngine";
 
 type Calendar = components["schemas"]["Calendar"] & CalendarStatusFields;
-type Rule = Omit<CalendarPreviewRequest, "year">;
 
 // Bumped when the demo data changes, so a tab that kept an older copy picks up the new seed.
-const STORE_KEY = "msw-mock-calendars-v3";
+const STORE_KEY = "msw-mock-calendars-v4";
 
 const thisYear = new Date().getFullYear();
-const WEEKDAYS = DAY_NAMES.slice(0, 5);
+// The same two years the Upload screen offers.
+const YEARS = [thisYear, thisYear + 1];
+const MONTHS = Array.from({ length: 12 }, (_, index) => index);
 
-/** Dates for the current and next year, the same two years the Upload screen offers. */
-const datesFor = (rule: Rule) =>
-  [thisYear, thisYear + 1].flatMap((year) => generatePreview({ ...rule, year }).dates);
+const pad = (n: number) => String(n).padStart(2, "0");
+const iso = (date: Date) => date.toISOString().slice(0, 10);
+const utc = (year: number, month: number, day: number) => new Date(Date.UTC(year, month, day));
+const isWeekday = (date: Date) => date.getUTCDay() !== 0 && date.getUTCDay() !== 6;
 
-/** The last date in each month, for a month-end style calendar. */
-function lastOfEachMonth(dates: string[]): string[] {
-  const byMonth = new Map<string, string>();
-  for (const date of [...dates].sort()) byMonth.set(date.slice(0, 7), date);
-  return [...byMonth.values()];
+/** Every Monday to Friday in the year. No holidays are removed: these are demo dates. */
+function weekdays(year: number): string[] {
+  const result: string[] = [];
+  for (let day = utc(year, 0, 1); day.getUTCFullYear() === year; day = utc(year, day.getUTCMonth(), day.getUTCDate() + 1)) {
+    if (isWeekday(day)) result.push(iso(day));
+  }
+  return result;
 }
+
+const workingDays = (year: number, month: number): string[] =>
+  weekdays(year).filter((date) => date.startsWith(`${year}-${pad(month + 1)}`));
+
+/** The nth working day of every month. */
+const nthWorkingDay = (n: number) => (year: number) =>
+  MONTHS.map((month) => workingDays(year, month)[n - 1]);
+
+/** The last working day of every month. */
+const monthEnds = (year: number) => MONTHS.map((month) => workingDays(year, month).at(-1)!);
+
+/** A calendar day each month, moved back to the Friday when it falls on a weekend. */
+const dayOfMonth = (day: number) => (year: number) =>
+  MONTHS.map((month) => {
+    const date = utc(year, month, day);
+    const back = date.getUTCDay() === 6 ? 1 : date.getUTCDay() === 0 ? 2 : 0;
+    return iso(utc(year, month, day - back));
+  });
+
+/** The last working day of March, June, September and December, and the first of January, April, July and October. */
+const quarterEnds = (year: number) => [2, 5, 8, 11].map((month) => monthEnds(year)[month]);
+const quarterStarts = (year: number) => [0, 3, 6, 9].map((month) => workingDays(year, month)[0]);
+
+const datesFor = (perYear: (year: number) => string[]) => YEARS.flatMap(perYear);
 
 // Always in the past, whatever today's date is.
 const at = (monthsAgo: number, day: number) =>
@@ -29,19 +55,7 @@ const at = (monthsAgo: number, day: number) =>
 
 type Origin = { createdBy: string; createdAt: string; updatedAt?: string };
 
-/** Created in the UI from a rule or weekdays. */
-const fromRule = (calendarName: string, rule: Rule, origin: Origin): Calendar => ({
-  calendarName,
-  dates: datesFor(rule),
-  ...rule,
-  migrated: false,
-  uploaded: false,
-  createdBy: origin.createdBy,
-  createdAt: origin.createdAt,
-  updatedAt: origin.updatedAt ?? origin.createdAt,
-});
-
-/** Created by uploading a file: dates only, no rule and no holiday calendar. */
+/** Created by uploading a file: dates only. */
 const fromUpload = (calendarName: string, dates: string[], origin: Origin): Calendar => ({
   calendarName,
   dates,
@@ -54,10 +68,10 @@ const fromUpload = (calendarName: string, dates: string[], origin: Origin): Cale
 });
 
 /** Imported from Autosys. */
-const fromAutosys = (calendarName: string, dates: string[], rule: Rule): Calendar => ({
+const fromAutosys = (calendarName: string, dates: string[], holidayCalendar: string): Calendar => ({
   calendarName,
   dates,
-  ...rule,
+  holidayCalendar,
   migrated: true,
   uploaded: false,
   createdBy: "migration",
@@ -65,100 +79,44 @@ const fromAutosys = (calendarName: string, dates: string[], rule: Rule): Calenda
   updatedAt: at(8, 15),
 });
 
-const nyseWeekdays: Rule = {
-  dayOfWeek: WEEKDAYS,
-  holidayCalendar: "NYSE",
-  holidayRun: true,
-  holidayOffset: 1,
-};
-const ukWeekdays: Rule = { ...nyseWeekdays, holidayCalendar: "UK_LSE" };
-// Month-end dates follow no rule the spec can express, so this calendar carries dates only.
-const monthEnd: Rule = { holidayCalendar: "NYSE", holidayRun: true, holidayOffset: -1 };
-
 const SEED: Calendar[] = [
-  fromRule("NYSE-Trading-Days", nyseWeekdays, {
+  fromUpload("NYSE-Trading-Days", datesFor(weekdays), { createdBy: "admin", createdAt: at(7, 12) }),
+  fromUpload("Payroll-10th-Working-Day", datesFor(nthWorkingDay(10)), {
     createdBy: "admin",
-    createdAt: at(7, 12),
+    createdAt: at(6, 3),
+    updatedAt: at(2, 18),
   }),
-  fromRule(
-    "Payroll-10th-Working-Day",
-    {
-      dateRuleType: "WORKING_DAY",
-      runDay: "10",
-      holidayCalendar: "NYSE",
-      holidayRun: true,
-      holidayOffset: 1,
-    },
-    { createdBy: "admin", createdAt: at(6, 3), updatedAt: at(2, 18) },
-  ),
-  fromRule(
-    "Quarter-Start-Reporting",
-    {
-      dateRuleType: "QUARTER_START_WORKING_DAY",
-      runDay: "10",
-      holidayCalendar: "NYSE",
-      holidayRun: true,
-      holidayOffset: 1,
-    },
-    { createdBy: "editor1", createdAt: at(5, 21) },
-  ),
-  fromRule(
-    "Quarter-End-Close",
-    {
-      dateRuleType: "QUARTER_END_WORKING_DAY",
-      runDay: "3",
-      holidayCalendar: "NYSE",
-      holidayRun: true,
-      holidayOffset: -1,
-    },
-    { createdBy: "editor1", createdAt: at(4, 9), updatedAt: at(1, 27) },
-  ),
-  fromRule(
-    "Statement-Day-8",
-    {
-      dateRuleType: "CALENDAR_DAY",
-      runDay: "8",
-      holidayCalendar: "CANADA",
-      holidayRun: true,
-      holidayOffset: 1,
-    },
-    { createdBy: "editor1", createdAt: at(4, 30) },
-  ),
-  fromRule(
-    "Fiscal-Year-Start",
-    {
-      dateRuleType: "FIXED_DATE_YEARLY",
-      runDate: "01-04",
-      holidayCalendar: "UK_LSE",
-      holidayRun: true,
-      holidayOffset: 1,
-    },
-    { createdBy: "admin", createdAt: at(3, 5) },
-  ),
-  fromUpload(
-    "Vendor-Payment-Dates",
-    datesFor({ dateRuleType: "CALENDAR_DAY", runDay: "15", holidayCalendar: "NYSE" }),
-    { createdBy: "editor1", createdAt: at(3, 17), updatedAt: at(0, 4) },
-  ),
-  fromUpload(
-    "Regional-Cutoff-Dates",
-    datesFor({ ...nyseWeekdays, dateRuleType: "WORKING_DAY", runDay: "5", dayOfWeek: undefined }),
-    { createdBy: "admin", createdAt: at(2, 8) },
-  ),
+  fromUpload("Quarter-Start-Reporting", datesFor(quarterStarts), { createdBy: "editor1", createdAt: at(5, 21) }),
+  fromUpload("Quarter-End-Close", datesFor(quarterEnds), {
+    createdBy: "editor1",
+    createdAt: at(4, 9),
+    updatedAt: at(1, 27),
+  }),
+  fromUpload("Statement-Day-8", datesFor(dayOfMonth(8)), { createdBy: "editor1", createdAt: at(4, 30) }),
+  fromUpload("Fiscal-Year-Start", YEARS.map((year) => dayOfMonth(1)(year)[3]), {
+    createdBy: "admin",
+    createdAt: at(3, 5),
+  }),
+  fromUpload("Vendor-Payment-Dates", datesFor(dayOfMonth(15)), {
+    createdBy: "editor1",
+    createdAt: at(3, 17),
+    updatedAt: at(0, 4),
+  }),
+  fromUpload("Regional-Cutoff-Dates", datesFor(nthWorkingDay(5)), { createdBy: "admin", createdAt: at(2, 8) }),
   // Inactive on purpose: shows the badge, and that it cannot be amended or uploaded to.
   {
-    ...fromUpload("Legacy-Month-End", lastOfEachMonth(datesFor(nyseWeekdays)), {
+    ...fromUpload("Legacy-Month-End", datesFor(monthEnds), {
       createdBy: "admin",
       createdAt: at(7, 20),
       updatedAt: at(1, 12),
     }),
     active: false,
   },
-  fromAutosys("AUTOSYS_US_BUSINESS", datesFor(nyseWeekdays), nyseWeekdays),
-  fromAutosys("AUTOSYS_UK_BUSINESS", datesFor(ukWeekdays), ukWeekdays),
-  fromAutosys("AUTOSYS_MONTH_END", lastOfEachMonth(datesFor(nyseWeekdays)), monthEnd),
+  fromAutosys("AUTOSYS_US_BUSINESS", datesFor(weekdays), "NYSE"),
+  fromAutosys("AUTOSYS_UK_BUSINESS", datesFor(weekdays), "UK_LSE"),
+  fromAutosys("AUTOSYS_MONTH_END", datesFor(monthEnds), "NYSE"),
   // Left empty on purpose: shows a migrated calendar still waiting for its dates.
-  fromAutosys("AUTOSYS_QUARTER_START", [], nyseWeekdays),
+  fromAutosys("AUTOSYS_QUARTER_START", [], "NYSE"),
 ];
 
 /**

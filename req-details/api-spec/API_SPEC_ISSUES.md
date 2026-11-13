@@ -1,6 +1,6 @@
 # API spec issues tracker
 
-Living list of problems, gaps and open questions in `CalendarManagementSpec.yml` that block or affect the UI. Send open items to the backend team and update this file as answers arrive.
+Living list of problems, gaps and open questions in `CalendarManagementSpec.yml`, and in the run-history sample files under `req-details/dag-history/`, that block or affect the UI. Send open items to the backend team and update this file as answers arrive.
 
 **How to maintain**
 - Add new items at the end with the next `API-nnn` ID. Never renumber; IDs are referenced from code comments.
@@ -42,6 +42,10 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | [API-026](#api-026-calendars-cannot-be-activated-or-deactivated) | High | Open | No calendar active/inactive status | Proposed `active` field + activate/deactivate (ADMIN only), mocked |
 | [API-027](#api-027-dates-before-today-must-be-read-only-but-nothing-enforces-it) | High | Open | Past dates must be read-only | Locked in the UI; mock enforces; browser-local "today" |
 | [API-028](#api-028-update-is-replace-all-and-its-contract-contradicts-itself) | Medium | Open | `update` is replace-all, `calendarName` contradiction | Read-modify-write with every field echoed |
+| [API-029](#api-029-no-run-history-api-and-the-sample-files-are-not-valid-json) | High | Open | No run-history API; sample files aren't valid JSON | Proposed `GET /v1/run-history` (mocked) |
+| [API-030](#api-030-run-identity-duplicates-and-latest-are-undefined) | High | Open | No run id; exact duplicates; "latest" undefined | Latest by start time, computed in the browser |
+| [API-031](#api-031-run-states-confirm-the-airflow-list-is-what-the-feed-sends) | Low | Open | Confirm the Airflow state list is what the feed sends | Airflow names; unknown states shown as "Other" with the feed's text |
+| [API-032](#api-032-nothing-tells-a-stale-dashboard-from-a-quiet-one) | Medium | Open | No freshness signal per business unit | "Updated" time + a non-authoritative note |
 
 ---
 
@@ -141,7 +145,7 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
   5. `listCalendars` filters by `ruleType` but the field is `dateRuleType`: same thing?
   6. How is a plain weekday calendar (no rule) represented: `dayOfWeek` with no `dateRuleType`? Does `dayOfWeek` also apply to the rule types (which days count as working days)?
   7. Exact meaning of `holidayRun` ("consider holidays for the run"?) and `holidayOffset` (a one-off shift, or step until a non-holiday? what does 0 mean? what if the shift crosses a year boundary?).
-- **UI assumption:** The rules form maps onto the spec's fields: `dateRuleType`, `runDay` / `runDate`, `dayOfWeek` (Business days), `holidayCalendar`, `holidayRun`, `holidayOffset` (sent only when `holidayRun` is true) (`calendarFormModel.ts`). Adjustment action is not sent. The `holidayRun` / `holidayOffset` reading in the mock (`ruleEngine.ts`): `holidayRun` = take holidays into account; on a calendar-day or fixed-date run that lands on a holiday, move by `holidayOffset` days until clear, `0` skips the run.
+- **UI assumption:** The rules form maps onto the spec's fields: `dateRuleType`, `runDay` / `runDate`, `dayOfWeek` (Business days), `holidayCalendar`, `holidayRun`, `holidayOffset` (sent only when `holidayRun` is true) (`calendarFormModel.ts`). Adjustment action is not sent. The `holidayRun` / `holidayOffset` reading below was encoded in the mock rule engine, which was deleted on 2026-11-12 (nothing uses it now): `holidayRun` = take holidays into account; on a calendar-day or fixed-date run that lands on a holiday, move by `holidayOffset` days until clear, `0` skips the run.
 
 ### API-010: No way to preview or generate dates from rules
 - **Severity / status:** Blocker · Open · raised 2026-11-05
@@ -149,7 +153,7 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Impact:** The rule-based Create screen shows a live grid. With this spec the client would have to generate dates itself, duplicating the rule engine, or the backend must provide it. Also, `RECORD.md` O-32 had preview working without an account; the spec requires a token on every operation, so the Create page now requires sign-in. Confirm that is intended.
 - **Proposed contract (not in the spec):** `POST /v1/calendars/preview`, stateless, writes nothing, readable by every authenticated role. Request: the calendar write fields plus `year` (`dateRuleType`, `runDay` / `runDate`, `dayOfWeek`, `holidayCalendar`, `holidayRun`, `holidayOffset`). Response: `{ "year": 2027, "dates": ["2027-01-15", …], "holidays": [{ "date": "2027-01-01", "name": "New Year's Day" }, …] }`. The UI then creates the calendar with `POST /v1/calendars`, sending those `dates` plus the same rule fields.
 - **Ask:** Who produces `dates` from a rule: the client, or the backend? If the backend, confirm or replace this endpoint; alternatively make `dates` optional on create when rules are supplied (then a preview is still needed for the grid).
-- **UI assumption:** The proposed endpoint above, mocked with our reading of the rules (`apps/web/src/lib/api/mocks/ruleEngine.ts`). The old `/api/ui/preview` calls are gone.
+- **UI assumption:** The proposed endpoint above. Its mock (`ruleEngine.ts`) was deleted on 2026-11-12 along with the rule-based flow; the item stays on hold in case rules return. The old `/api/ui/preview` calls are gone.
 
 ### API-014: Business Unit and Application are missing
 - **Severity / status:** Medium · Open · raised 2026-11-04
@@ -234,7 +238,7 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
   3. Meaning of the quarter rules. UI assumption: `QUARTER_START_WORKING_DAY DAY=10` is the 10th working day counted from the first day of the quarter; `QUARTER_END_WORKING_DAY DAY=30` is the 30th working day counted back from the last day of the quarter (confirmed with the product owner as a working interpretation, not by the backend).
   4. How do the parameters map to the calendar fields? UI assumption: `DAY` → `runDay` (string), `MONTH` + `DAY` → `runDate`, written as `DD-MM` (for example `01-03`). The spec only gives example `'01-01'`, so `MM-DD` is possible too.
   5. Valid ranges, and behaviour when a month has no such day (the 31st; the 23rd working day). The mock clamps calendar days to the month end and skips a missing Nth working day.
-- **UI assumption:** The rules form is driven by the proposed catalog (`CalendarForm.tsx`), mocked in `apps/web/src/lib/api/mocks/ruleEngine.ts`.
+- **UI assumption:** None now: the rule form and its mock catalog (`ruleEngine.ts`) were deleted on 2026-11-12. The item stays on hold in case rules return.
 
 ### API-021: How many years of dates a calendar holds, and who extends them
 - **Severity / status:** Medium · Open · raised 2026-11-05
@@ -314,6 +318,68 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 
 ---
 
+## Run history (home dashboard)
+
+The home page shows the latest run of every DAG and task. It reads `req-details/dag-history/run_history.json` (one row per DAG or task run) and, in future, `dag_info.json` (a DAG's tasks, upstream and downstream, and metadata). Neither has an API yet.
+
+### API-029: No run-history API, and the sample files are not valid JSON
+- **Severity / status:** High · Open · raised 2026-11-11
+- **Source:** `run_history.json` and `dag_info.json`, plus the annotated screenshot (`source` = business unit, `type` = DAG or Task, `dag_id` mandatory, `task_id` = task name).
+- **Spec:** `CalendarManagementSpec.yml` is calendar-only, and `apps/control_plane` has only a README (its `api/ui` read path is empty). There is no run-history endpoint to build against.
+- **Sample files:** both are invalid JSON, so nothing can parse them as delivered.
+  - A comma is missing after every `"source": "FFIO"` / `"AM"` line.
+  - In `dag_info.json`, `"upstream": [ "source": "AM" "dag_id": null, … ]` puts object members directly inside an array, with no braces.
+  - `source` appears at several levels of `dag_info.json` (DAG, task, downstream, upstream) with no stated meaning at each.
+- **Proposed contract (not in the spec; `RunRecord` in `apps/web/src/lib/api/proposed.ts`):** `GET /v1/run-history` returns an array of rows exactly as in `run_history.json`: `source`, `type`, `state`, `dag_id`, `task_id`, `start_date`, `end_date`, `elapsed_time`, `business_date`. Readable by every authenticated role. Mocked.
+- **Ask:**
+  1. Give the real endpoint and contract (an OpenAPI schema would settle the JSON problems), and fix the sample files.
+  2. Can the server return only the latest run per DAG and per task? Otherwise the browser downloads the whole history (30-day retention, `RECORD.md` O-17, times runs a day, times tasks) just to show one row each.
+  3. Pagination and filters: at least `source`, `dag_id` and a `since` time.
+  4. Is `dag_info.json` served by the same API? Its `slo`, `category`, `severity`, `critical_path`, `support_group` and `application_id` are all null in the sample.
+- **UI assumption:** The page fetches the whole feed and works out the latest runs in the browser (`apps/web/src/features/home/runModel.ts`). `dag_info.json` is not used yet.
+
+### API-030: Run identity, duplicates and "latest" are undefined
+- **Severity / status:** High · Open · raised 2026-11-11
+- **Requirement (product, 2026-11-11):** a DAG can run several times a day and only the latest run is shown; a task name can belong to several DAGs.
+- **Sample data:**
+  - `run_history.json` rows have no `run_id` (`dag_info.json` has one under `dag_run`), so a task row can't be tied to a DAG run.
+  - Every row is repeated exactly: 6 rows are 3 runs.
+  - `business_date` is `"260817"` (YYMMDD) here and `"2026-10-02"` in `dag_info.json`.
+  - Timestamps carry `-04:00` and 5 or 6 fractional digits; `elapsed_time` is an `HH:MM:SS.ffffff` string.
+  - Queued and scheduled runs presumably have no `start_date`, but the sample has none to show.
+- **Ask:**
+  1. Add `run_id` (and the try number) to every row, and say what identifies a run.
+  2. Why are rows repeated? If it is the same event delivered twice (`RECORD.md` O-13), de-duplicate on the server.
+  3. Define "latest": the greatest `start_date` per DAG? per business date? What is the latest of a DAG that has a queued run with no start?
+  4. Put the DAG run's `run_id` on every task row, so the tasks of the latest run can be shown.
+  5. Use one `business_date` format (suggest `YYYY-MM-DD`) and state the timezone (`RECORD.md` O-15 says it is undefined).
+  6. What does a running row look like: `end_date` null? `elapsed_time` null, or a snapshot?
+  7. DAG names are not unique across business units (O-15), and task names are not unique across DAGs (`start` and `end` are everywhere). Confirm the key is business unit + DAG (+ task).
+- **UI assumptions:**
+  - A DAG is its business unit + `dag_id`; a task is that + `task_id`.
+  - Rows identical in every field are collapsed.
+  - Latest = the greatest `start_date`. A run with no start counts as the newest (it is what the DAG is doing now), and the finished run before it is shown as "Previous run". For the same start, the row with an end wins.
+  - A DAG's tasks are the latest row of each task name in that DAG. A failing task counts toward "Needs attention" only if it started at or after the DAG's latest run, so an old failure from a fixed run doesn't raise an alarm.
+  - A running run's duration is worked out from the clock, not from `elapsed_time`.
+  - Times show in the viewer's local time. `business_date` is read as `YYMMDD`, `YYYYMMDD` or `YYYY-MM-DD`.
+  - A DAG that only has task rows is not listed as a DAG; its tasks still appear in the Task finder. Rows with no `dag_id` are ignored and counted in the page footer.
+
+### API-031: Run states: confirm the Airflow list is what the feed sends
+- **Severity / status:** Low · Open · raised 2026-11-11, list received 2026-11-12
+- **Source:** the annotated screenshot listed `success, failed, running, retry, hold, scheduled, queued` and said the full list would follow. The list that followed is Airflow's: DAG run states `queued, running, success, failed`; task states `scheduled, queued, running, success, failed, up_for_retry, up_for_reschedule, upstream_failed, skipped, deferred, restarting, removed, none`.
+- **Issue:** The screenshot and the new list disagree: `retry` vs `up_for_retry`, and `hold` and a DAG-level `scheduled` appear only in the screenshot. Nothing says how `none` is sent (the string `"none"`, or a null `state`?), what casing is used, or what a DAG run in a state outside the four looks like.
+- **Ask:** Confirm the feed sends exactly these Airflow names (lowercase, snake_case) and drop `hold`. Is `none` sent as a string or as a null? Should `removed` tasks be in the feed at all? Which states need attention in the business's eyes, especially `upstream_failed`?
+- **UI assumption:** Names match case-insensitively and `retry` is read as `up_for_retry`. Anything else (including `hold`) shows as "Other" in the feed's own words, so nothing is hidden. Needs attention = failed, up_for_retry. `upstream_failed` is a knock-on of a failed task, so it is shown but not raised on its own. Finished = success, failed, skipped, upstream_failed, removed; up_for_retry, up_for_reschedule, deferred and restarting are not. The status tiles always show the four DAG states; task-only states get a tile only when present. A new state only needs a colour and a label in `StatusBadge.tsx` and a place in `ALL_STATES` in `runModel.ts`.
+
+### API-032: Nothing tells a stale dashboard from a quiet one
+- **Severity / status:** Medium · Open · raised 2026-11-11
+- **Requirement:** `RECORD.md` O-13 and section 13.6: the listeners are fire-and-forget with no retry, so a dropped event is lost and undetectable, and the dashboard must not be treated as authoritative.
+- **Issue:** The feed has no "last event received" time per business unit, so the page can't tell a business unit that has nothing to report from one whose listener has stopped. A run reported as running for hours may have finished while its end event was dropped.
+- **Ask:** A heartbeat or last-event time per business unit, and ideally the age of each row's last update. Is a "running for longer than expected" signal available (typical duration or SLO)?
+- **UI assumption:** The page shows when it last refreshed (every 30 seconds) and a note that it is a guide, not the source of truth. It can't flag stale business units or runs that look stuck.
+
+---
+
 ## Change log
 
 | Date | Change |
@@ -326,3 +392,6 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | 2026-11-05 | Review change: the two sub-options under Upload dates were replaced by one combined "Calendar" dropdown with "Existing calendars" and "Migrated calendars" groups. No new spec issue; API-006 and API-024 reworded. |
 | 2026-11-05 | Calendars page moved onto the new spec with demo data (API-016 updated). Added API-025 (no change history or `updatedBy`; the audit table was dropped). |
 | 2026-11-11 | Amend and activate/deactivate. Added API-026 (no calendar status; activate/deactivate proposed, ADMIN only), API-027 (past dates must be read-only; no server rule), API-028 (`update` is replace-all and its `calendarName` text contradicts the schema). API-011, API-012, API-023 and API-025 updated. API-005, API-009, API-010 and API-020 put on hold: rule-based create was removed on 2026-11-06, so the UI no longer uses the holiday-calendar list, rule catalog or preview. |
+| 2026-11-11 | Home dashboard (latest DAG and task runs). Added a "Run history" section: API-029 (no API; both sample files are invalid JSON), API-030 (no run id, repeated rows, "latest" undefined), API-031 (state list not final), API-032 (no freshness signal). The intro now covers `req-details/dag-history/`. |
+| 2026-11-12 | Run states: the Airflow list arrived. API-031 rewritten from "list not final" to "confirm the feed sends these names". The dashboard now uses Airflow's states (`hold` dropped, `retry` read as `up_for_retry`). |
+| 2026-11-12 | Removed the last rule-based leftovers from the UI: the "Rule-based" filter and badge on the Calendars list, the rule engine and the `holiday-calendars`, `rules` and `preview` mocks, and the matching client functions and types. Demo calendars are now uploaded or migrated. API-005, API-009, API-010 and API-020 stay on hold. |

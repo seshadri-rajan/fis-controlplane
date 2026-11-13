@@ -1,69 +1,34 @@
-import type { components } from "./spec";
-
-type Schemas = components["schemas"];
-
 /**
  * Contracts the UI needs that are NOT in CalendarManagementSpec.yml. They are our proposal to the
  * backend team and are mocked until it answers. See req-details/api-spec/API_SPEC_ISSUES.md:
- * API-005 (holiday calendars), API-010 (preview), API-020 (rule catalog).
+ * API-026 (calendar status) and API-029 (run history).
  */
 
-export const DAY_NAMES = [
-  "MONDAY",
-  "TUESDAY",
-  "WEDNESDAY",
-  "THURSDAY",
-  "FRIDAY",
-  "SATURDAY",
-  "SUNDAY",
-];
-
-export const MONTH_CODES = [
-  "JAN",
-  "FEB",
-  "MAR",
-  "APR",
-  "MAY",
-  "JUN",
-  "JUL",
-  "AUG",
-  "SEP",
-  "OCT",
-  "NOV",
-  "DEC",
-];
-
-/** GET /v1/holiday-calendars */
-export type HolidayCalendarOption = { name: Schemas["HolidayCalendar"]; description: string };
-
-export type RuleParameter =
-  | { name: string; label: string; type: "INTEGER"; min: number; max: number; default: number }
-  | { name: string; label: string; type: "ENUM"; options: string[]; default: string };
-
-/** GET /v1/rules: the defined list of extended rules and the inputs each one takes. */
-export type RuleDefinition = {
-  ruleType: Schemas["DateRuleType"];
-  frequency: "MONTHLY" | "QUARTERLY" | "YEARLY";
-  description: string;
-  parameters: RuleParameter[];
-};
-
-/** POST /v1/calendars/preview: stateless, writes nothing. Mirrors the calendar write fields. */
-export type CalendarPreviewRequest = {
-  year: number;
-  holidayCalendar: Schemas["HolidayCalendar"];
-  holidayRun?: Schemas["HolidayRun"];
-  holidayOffset?: Schemas["HolidayOffset"];
-  dateRuleType?: Schemas["DateRuleType"];
-  dayOfWeek?: Schemas["DayOfWeek"][];
-  runDate?: Schemas["RunDate"];
-  runDay?: Schemas["RunDay"];
-};
-
-export type CalendarPreviewResponse = {
-  year: number;
-  dates: string[];
-  holidays: Array<{ date: string; name: string }>;
+/**
+ * Proposed (API-029): one row of run history, shaped like req-details/dag-history/run_history.json.
+ * Every field is optional because the real feed is unspecified (API-030, API-031) and the dashboard
+ * must survive gaps rather than blank the page.
+ *
+ *   GET /v1/run-history -> RunRecord[]
+ */
+export type RunRecord = {
+  /** Business unit, for example "FFIO" or "AM". */
+  source?: string | null;
+  /** "DAG" or "Task". */
+  type?: string | null;
+  /** Airflow's names (see API-031), for example success, failed, running, up_for_retry. */
+  state?: string | null;
+  /** Mandatory. */
+  dag_id?: string | null;
+  /** The task name; null for a DAG run. */
+  task_id?: string | null;
+  /** ISO 8601 with a UTC offset, up to 6 fractional digits. */
+  start_date?: string | null;
+  end_date?: string | null;
+  /** "HH:MM:SS.ffffff". */
+  elapsed_time?: string | null;
+  /** "YYMMDD" in the sample (dag_info.json uses "YYYY-MM-DD"). */
+  business_date?: string | null;
 };
 
 /**

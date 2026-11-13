@@ -203,7 +203,7 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
     mutationFn: async (): Promise<SaveResult> => {
       if (mode === "upload") {
         // Read the calendar now, not a cached copy: the spec's update replaces every date and
-        // field, so the other years, the past, and its rule fields must be sent back unchanged.
+        // field, so the other years, the past, and its other fields must be sent back unchanged.
         const fresh = await getCalendar(selectedName);
         if (!isActive(fresh)) {
           throw new Error("This calendar is inactive. Ask an admin to activate it first.");

@@ -1,9 +1,9 @@
 import { http, HttpResponse } from "msw";
 import { isPastDate, todayIso } from "../../dates";
 import { MAX_UPLOAD_BYTES, parseDatesCsv } from "../parseDatesCsv";
-import type { CalendarPreviewRequest, CalendarStatusFields } from "../proposed";
+import type { CalendarStatusFields } from "../proposed";
 import type { components } from "../spec";
-import { generatePreview, HOLIDAY_CALENDARS, RULES, validatePreview } from "./ruleEngine";
+import { runHistory } from "./runHistory";
 import { loadCalendars, saveCalendars } from "./store";
 
 type User = components["schemas"]["User"];
@@ -72,27 +72,11 @@ const activation = (action: "activate" | "deactivate", active: boolean) =>
 
 // The spec's server root is /v1. Login is stateless: the spec has no /me or /logout.
 export const handlers = [
-  // Not in the spec: proposed reference-data and preview endpoints (API-005, API-010, API-020).
-  http.get("/v1/holiday-calendars", ({ request }) => {
+  // Not in the spec: proposed run history for the home dashboard (API-029).
+  http.get("/v1/run-history", ({ request }) => {
     const session = authenticate(request);
     if ("failure" in session) return session.failure;
-    return HttpResponse.json(HOLIDAY_CALENDARS);
-  }),
-
-  http.get("/v1/rules", ({ request }) => {
-    const session = authenticate(request);
-    if ("failure" in session) return session.failure;
-    return HttpResponse.json(RULES);
-  }),
-
-  http.post("/v1/calendars/preview", async ({ request }) => {
-    const session = authenticate(request);
-    if ("failure" in session) return session.failure;
-
-    const body = (await request.json().catch(() => null)) as Partial<CalendarPreviewRequest> | null;
-    const problem = validatePreview(body);
-    if (problem) return error(400, "BAD_REQUEST", problem);
-    return HttpResponse.json(generatePreview(body as CalendarPreviewRequest));
+    return HttpResponse.json(runHistory());
   }),
 
   http.get("/v1/calendars", ({ request }) => {
@@ -156,9 +140,6 @@ export const handlers = [
     if (body.calendarName !== undefined && body.calendarName !== params.name) {
       return error(400, "BAD_REQUEST", "calendarName must match the calendar in the path");
     }
-    if (body.holidayCalendar !== "" && !HOLIDAY_CALENDARS.some((h) => h.name === body.holidayCalendar)) {
-      return error(400, "BAD_REQUEST", `Unknown holidayCalendar "${body.holidayCalendar}"`);
-    }
     if (body.dates.some((d) => !ISO_DATE.test(d)) || new Set(body.dates).size !== body.dates.length) {
       return error(400, "BAD_REQUEST", "dates must be unique YYYY-MM-DD values");
     }
@@ -215,10 +196,6 @@ export const handlers = [
     }
     if (typeof body.holidayCalendar !== "string" || !Array.isArray(body.dates)) {
       return error(400, "BAD_REQUEST", "dates and holidayCalendar are required");
-    }
-    // Empty means "none": uploaded calendars carry no holiday calendar (API-005).
-    if (body.holidayCalendar !== "" && !HOLIDAY_CALENDARS.some((h) => h.name === body.holidayCalendar)) {
-      return error(400, "BAD_REQUEST", `Unknown holidayCalendar "${body.holidayCalendar}"`);
     }
     if (body.dates.some((d) => !ISO_DATE.test(d)) || new Set(body.dates).size !== body.dates.length) {
       return error(400, "BAD_REQUEST", "dates must be unique YYYY-MM-DD values");

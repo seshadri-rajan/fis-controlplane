@@ -11,56 +11,42 @@ import { useTabs } from "../navigation/TabsProvider";
 import { field, label } from "./formStyles";
 import MonthGrid, { Legend } from "./MonthGrid";
 
-type Kind = "rules" | "uploaded" | "migrated";
+// Every calendar is made by uploading a file or migrated from Autosys. One that is neither (the
+// real backend may hold older ones) gets no badge and is only listed under All.
+type Kind = "uploaded" | "migrated";
 type Filter = "all" | Kind | "inactive";
 
 const KIND_LABEL: Record<Kind, string> = {
-  rules: "Rule-based",
   uploaded: "Uploaded",
   migrated: "Migrated",
 };
 
 const KIND_STYLE: Record<Kind, string> = {
-  rules: "bg-sky-100 text-sky-800",
   uploaded: "bg-violet-100 text-violet-800",
   migrated: "bg-amber-100 text-amber-800",
 };
 
 const FILTERS: Array<[Filter, string]> = [
   ["all", "All"],
-  ["rules", KIND_LABEL.rules],
   ["uploaded", KIND_LABEL.uploaded],
   ["migrated", KIND_LABEL.migrated],
   ["inactive", "Inactive"],
 ];
 
-const kindOf = (calendar: SpecCalendar): Kind =>
-  calendar.migrated ? "migrated" : calendar.uploaded ? "uploaded" : "rules";
+const kindOf = (calendar: SpecCalendar): Kind | null =>
+  calendar.migrated ? "migrated" : calendar.uploaded ? "uploaded" : null;
 
-const titleCase = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
-
-function scheduleOf(calendar: SpecCalendar): string {
-  if (calendar.dateRuleType) {
-    const parameter = calendar.runDate
-      ? `date ${calendar.runDate}`
-      : calendar.runDay
-        ? `day ${calendar.runDay}`
-        : "";
-    return parameter ? `${calendar.dateRuleType} · ${parameter}` : calendar.dateRuleType;
-  }
-  if (calendar.dayOfWeek?.length) {
-    return calendar.dayOfWeek.map((day) => titleCase(day).slice(0, 3)).join(", ");
-  }
-  return "Dates only";
+/** "2026", "2026 – 2027" or "No dates yet". */
+function coverageOf(calendar: SpecCalendar): string {
+  const years = (calendar.dates ?? []).map((date) => date.slice(0, 4)).sort();
+  if (years.length === 0) return "No dates yet";
+  const first = years[0];
+  const last = years[years.length - 1];
+  return first === last ? first : `${first} – ${last}`;
 }
 
-function holidayHandlingOf(calendar: SpecCalendar): string {
-  if (!calendar.holidayCalendar) return "None";
-  if (!calendar.holidayRun) return `${calendar.holidayCalendar}, not applied`;
-  const offset = calendar.holidayOffset;
-  if (offset === undefined) return calendar.holidayCalendar;
-  const move = offset === 0 ? "skipped" : `moved ${offset > 0 ? "+" : ""}${offset} day${Math.abs(offset) === 1 ? "" : "s"}`;
-  return `${calendar.holidayCalendar}, run on a holiday is ${move}`;
+function holidayCalendarOf(calendar: SpecCalendar): string {
+  return calendar.holidayCalendar || "None";
 }
 
 const formatDate = (iso: string | undefined) =>
@@ -104,14 +90,14 @@ export default function CalendarsPage() {
   const counts = useMemo(() => {
     const result: Record<Filter, number> = {
       all: 0,
-      rules: 0,
       uploaded: 0,
       migrated: 0,
       inactive: 0,
     };
     for (const calendar of calendars.data ?? []) {
       result.all += 1;
-      result[kindOf(calendar)] += 1;
+      const kind = kindOf(calendar);
+      if (kind) result[kind] += 1;
       if (!isActive(calendar)) result.inactive += 1;
     }
     return result;
@@ -228,13 +214,15 @@ export default function CalendarsPage() {
                             Inactive
                           </span>
                         )}
-                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kind]}`}>
-                          {KIND_LABEL[kind]}
-                        </span>
+                        {kind && (
+                          <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kind]}`}>
+                            {KIND_LABEL[kind]}
+                          </span>
+                        )}
                       </span>
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-xs text-slate-500">
-                      <span className="truncate">{scheduleOf(calendar)}</span>
+                      <span className="truncate">{coverageOf(calendar)}</span>
                       <span className="shrink-0 tabular-nums">
                         {calendar.dates?.length ?? 0} dates
                       </span>
@@ -263,9 +251,11 @@ export default function CalendarsPage() {
             <div className="rounded-lg border border-slate-200 bg-white p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold">{current.calendarName}</h2>
-                <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kindOf(current)]}`}>
-                  {KIND_LABEL[kindOf(current)]}
-                </span>
+                {kindOf(current) && (
+                  <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${KIND_STYLE[kindOf(current)!]}`}>
+                    {KIND_LABEL[kindOf(current)!]}
+                  </span>
+                )}
                 {!isActive(current) && (
                   <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
                     Inactive
@@ -349,8 +339,8 @@ export default function CalendarsPage() {
 
               <dl className="mt-3 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
                 <Detail term="Status" value={isActive(current) ? "Active" : "Inactive"} />
-                <Detail term="Schedule" value={scheduleOf(current)} />
-                <Detail term="Holidays" value={holidayHandlingOf(current)} />
+                <Detail term="Years covered" value={coverageOf(current)} />
+                <Detail term="Holiday calendar" value={holidayCalendarOf(current)} />
                 <Detail
                   term="Created"
                   value={`${current.createdBy ?? "–"} · ${formatDate(current.createdAt)}`}

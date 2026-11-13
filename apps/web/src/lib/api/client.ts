@@ -1,10 +1,4 @@
-import type {
-  CalendarPreviewRequest,
-  CalendarPreviewResponse,
-  CalendarStatusFields,
-  HolidayCalendarOption,
-  RuleDefinition,
-} from "./proposed";
+import type { CalendarStatusFields, RunRecord } from "./proposed";
 import type { components as specComponents } from "./spec";
 
 type SpecUser = specComponents["schemas"]["User"];
@@ -200,16 +194,8 @@ export function uploadCalendarDates(calendarName: string, file: File): Promise<S
   });
 }
 
-// --- reference data and preview: proposed endpoints, not in the spec (see proposed.ts) ---
+// --- run history: proposed endpoint, not in the spec (API-029) ---
 
-export function listHolidayCalendars(): Promise<HolidayCalendarOption[]> {
-  return request<HolidayCalendarOption[]>("/v1/holiday-calendars");
-}
-
-export function listRuleCatalog(): Promise<RuleDefinition[]> {
-  return request<RuleDefinition[]>("/v1/rules");
-}
-
-export function previewCalendar(body: CalendarPreviewRequest): Promise<CalendarPreviewResponse> {
-  return request<CalendarPreviewResponse>("/v1/calendars/preview", json(body));
+export function listRunHistory(): Promise<RunRecord[]> {
+  return request<RunRecord[]>("/v1/run-history");
 }
