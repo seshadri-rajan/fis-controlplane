@@ -1,7 +1,9 @@
 """Environment-backed settings via pydantic-settings. See .env.example."""
 
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,26 +11,25 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CALENDAR_", env_file=".env", extra="ignore")
 
     log_level: str = "INFO"
-    preview_max_years: int = 5
-
     db_url: str = "sqlite+aiosqlite:///./calendar.db"
     db_echo: bool = False
     auto_create_schema: bool = True
+    upload_max_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
 
-    # When true, mutations raise a pending change request instead of applying directly (11.3).
-    # Off until S-13 is answered; the change-request table exists either way.
-    approval_required: bool = False
-
-    # Empty means a random per-process key: sessions do not survive a restart, which is fine for
-    # development and unacceptable in deployment.
-    session_secret: str = ""
-    session_idle_minutes: int = 30
-    session_absolute_minutes: int = 480
-    session_cookie_secure: bool = True
-
-    password_min_length: int = 12
-    lockout_threshold: int = 5
-    lockout_minutes: int = 15
+    auth_enabled: bool = True
+    oauth_mode: Literal["jwt", "introspection"] = "jwt"
+    oauth_issuer: str = ""
+    oauth_audience: str = ""
+    oauth_jwks_url: str = ""
+    oauth_algorithm: Literal["RS256", "RS384", "RS512", "PS256", "ES256", "ES384"] = "RS256"
+    oauth_introspection_url: str = ""
+    oauth_client_id: str = ""
+    oauth_client_secret: SecretStr = SecretStr("")
+    oauth_role_claim: str = "roles"
+    oauth_role_map: dict[str, Literal["VIEWER", "EDITOR", "ADMIN"]] = Field(
+        default_factory=lambda: {"VIEWER": "VIEWER", "EDITOR": "EDITOR", "ADMIN": "ADMIN"}
+    )
+    oauth_username_claim: str = "preferred_username"
 
     materialise_years: int = 2
 

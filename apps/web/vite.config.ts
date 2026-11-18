@@ -7,8 +7,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Same-origin in production (FastAPI serves dist/), so no CORS config anywhere.
-      "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/v1": { target: "http://127.0.0.1:8000", changeOrigin: true },
       "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
     },
   },

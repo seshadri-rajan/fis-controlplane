@@ -1,20 +1,23 @@
-import type { components } from "./schema";
+import type { operations } from "./schema";
 
-export type PreviewRequest = components["schemas"]["PreviewRequest"];
-export type PreviewResponse = components["schemas"]["PreviewResponse"];
-export type PreviewDate = components["schemas"]["PreviewDate"];
-export type RuleSummary = components["schemas"]["RuleSummary"];
-export type Weekday = components["schemas"]["Weekday"];
-export type HolidayPolicy = components["schemas"]["HolidayPolicy"];
-export type CollisionPolicy = components["schemas"]["CollisionPolicy"];
-export type BoundaryPolicy = components["schemas"]["BoundaryPolicy"];
+type JsonBody<Operation extends { requestBody: { content: { "application/json": unknown } } }> =
+  Operation["requestBody"]["content"]["application/json"];
+type JsonResponse<Operation extends { content: { "application/json": unknown } }> =
+  Operation["content"]["application/json"];
 
-export type CurrentUserRead = components["schemas"]["CurrentUserRead"];
-export type LoginRequest = components["schemas"]["LoginRequest"];
-export type CalendarRead = components["schemas"]["CalendarRead"];
-export type CalendarDateRead = components["schemas"]["CalendarDateRead"];
-export type AuditEntryRead = components["schemas"]["AuditEntryRead"];
-export type ChangeRequestRead = components["schemas"]["ChangeRequestRead"];
+export type Calendar = JsonResponse<operations["getCalendar"]["responses"][200]>;
+export type CalendarPage = JsonResponse<operations["listCalendars"]["responses"][200]>;
+type CalendarDates = JsonResponse<operations["getCalendarDates"]["responses"][200]>;
+type UploadedCalendars = JsonResponse<operations["getUploadedCalendars"]["responses"][200]>;
+type CreateCalendar = JsonBody<operations["createCalendar"]>;
+type UpdateCalendar = JsonBody<operations["updateCalendar"]>;
+type ListQuery = NonNullable<operations["listCalendars"]["parameters"]["query"]>;
+type UploadMetadata =
+  operations["uploadCalendarDates"]["requestBody"]["content"]["multipart/form-data"]["data"];
+type ErrorBody = JsonResponse<operations["getCalendar"]["responses"][400]>;
+
+const calendarsPath = "/v1/calendars";
+const calendarPath = (name: string) => `${calendarsPath}/${encodeURIComponent(name)}`;
 
 export class ApiError extends Error {
   constructor(
@@ -25,87 +28,65 @@ export class ApiError extends Error {
   }
 }
 
-async function send(path: string, init?: RequestInit): Promise<Response> {
-  const response = await fetch(path, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  });
-  if (!response.ok) {
-    throw new ApiError(response.status, await describeFailure(response));
-  }
-  return response;
-}
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  return (await (await send(path, init)).json()) as T;
-}
-
-async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  await send(path, init);
-}
-
-async function describeFailure(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    if (typeof body?.detail === "string") return body.detail;
-    if (Array.isArray(body?.detail)) {
-      return body.detail.map((d: { msg?: string }) => d.msg ?? "invalid input").join("; ");
+export function createCalendarApi(token?: string) {
+  async function request<T>(path: string, init?: RequestInit): Promise<T> {
+    const headers = new Headers(init?.headers);
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(path, { ...init, headers, credentials: "omit" });
+    if (!response.ok) {
+      const body: Partial<ErrorBody> | null = await response.json().catch(() => null);
+      const message = body?.message ?? `Request failed (${response.status}).`;
+      const details = body?.details?.map(({ field, message }) => `${field}: ${message}`);
+      throw new ApiError(response.status, details?.length ? `${message} ${details.join("; ")}` : message);
     }
-  } catch {
-    // Fall through to the generic message below.
+    return response.json();
   }
-  return `Request failed (${response.status})`;
-}
 
-const json = (body: unknown): RequestInit => ({
-  method: "POST",
-  body: JSON.stringify(body),
-});
-
-// --- preview (unauthenticated by design, see RECORD O-32) ---
-
-export function listRules(): Promise<RuleSummary[]> {
-  return request<RuleSummary[]>("/api/ui/preview/rules");
-}
-
-export function fetchPreview(body: PreviewRequest): Promise<PreviewResponse> {
-  return request<PreviewResponse>("/api/ui/preview", json(body));
-}
-
-// --- auth ---
-
-export function login(body: LoginRequest): Promise<CurrentUserRead> {
-  return request<CurrentUserRead>("/api/ui/auth/login", json(body));
-}
-
-export function logout(): Promise<void> {
-  return requestVoid("/api/ui/auth/logout", { method: "POST" });
-}
-
-/** Resolves to null when not signed in, so callers do not treat 401 as a failure. */
-export async function fetchMe(): Promise<CurrentUserRead | null> {
-  try {
-    return await request<CurrentUserRead>("/api/ui/auth/me");
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
-    throw error;
+  function write<T>(path: string, method: "POST" | "PATCH", body: CreateCalendar | UpdateCalendar) {
+    return request<T>(path, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
   }
+
+  return {
+    list(query: ListQuery = {}) {
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(query)) {
+        if (value !== undefined) params.set(key, String(value));
+      }
+      return request<CalendarPage>(`${calendarsPath}?${params}`);
+    },
+    get(name: string) {
+      return request<Calendar>(calendarPath(name));
+    },
+    dates(name: string, excludeCalendar?: string) {
+      const query = excludeCalendar ? `?${new URLSearchParams({ excludeCalendar })}` : "";
+      return request<CalendarDates>(`${calendarPath(name)}/dates${query}`);
+    },
+    uploaded() {
+      return request<UploadedCalendars>(`${calendarsPath}/uploadedCalendars`);
+    },
+    create(body: CreateCalendar) {
+      return write<JsonResponse<operations["createCalendar"]["responses"][201]>>(
+        calendarsPath, "POST", body,
+      );
+    },
+    update(name: string, body: UpdateCalendar) {
+      return write<JsonResponse<operations["updateCalendar"]["responses"][200]>>(
+        `${calendarPath(name)}/update`, "PATCH", body,
+      );
+    },
+    upload(name: string, metadata: UploadMetadata, file: File) {
+      const body = new FormData();
+      body.append("data", new Blob([JSON.stringify(metadata)], { type: "application/json" }), "data.json");
+      body.append("file", new Blob([file], { type: "text/csv" }), file.name);
+      return request<JsonResponse<operations["uploadCalendarDates"]["responses"][201]>>(
+        `${calendarPath(name)}/upload`, { method: "POST", body },
+      );
+    },
+  };
 }
 
-// --- calendars ---
-
-export function listCalendars(includeInactive = false): Promise<CalendarRead[]> {
-  return request<CalendarRead[]>(`/api/ui/calendars?include_inactive=${includeInactive}`);
-}
-
-export function fetchCalendarDates(key: number, year: number): Promise<CalendarDateRead[]> {
-  return request<CalendarDateRead[]>(`/api/ui/calendars/${key}/dates?year=${year}`);
-}
-
-export function fetchCalendarHistory(key: number): Promise<AuditEntryRead[]> {
-  return request<AuditEntryRead[]>(`/api/ui/calendars/${key}/history`);
-}
-
-export function listChangeRequests(): Promise<ChangeRequestRead[]> {
-  return request<ChangeRequestRead[]>("/api/ui/change-requests");
-}
+export type CalendarApi = ReturnType<typeof createCalendarApi>;

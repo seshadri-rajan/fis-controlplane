@@ -5,16 +5,17 @@ info:
   description: |
     API for managing named calendars and their dates.
 
-    All operations, including login, require a bearer token in the standard
-    Authorization header: Authorization: Bearer <token>.
+    When authentication is enabled (the default), all operations require an OAuth
+    access token in the Authorization header: Authorization: Bearer <token>.
+    Obtain the access token from the configured identity provider; this API does
+    not provide a login endpoint. Local development may explicitly disable auth.
 
     Calendar names are case-sensitive and unique without spaces. Dates are full-date
     strings (DD-MM-YYYY), without time or timezone components. Date arrays
     contain unique values and are returned in ascending order.
 
     Read operations are available to all authenticated roles. Calendar
-    creation, update, and upload require EDITOR or ADMIN. Deletion requires
-    ADMIN or EDITOR.
+    creation, update, and upload require EDITOR or ADMIN.
 
 servers:
   - url: /v1
@@ -25,7 +26,7 @@ security:
 
 tags:
   - name: Calendars
-    description: Create, retrieve, update, delete, upload calendars.
+    description: Create, retrieve, update, and upload calendars.
   - name: Airflow 
     description: Get Dates for Airflow.
 
@@ -52,7 +53,7 @@ paths:
               description: Relative URI of the created calendar.
               schema:
                 type: string
-              example: /v1/calendar/calendars/business-calendar
+              example: /v1/calendars/business-calendar
           content:
             application/json:
               schema:
@@ -72,7 +73,7 @@ paths:
       summary: Get a paginated list of calendars
       description: |
         Returns calendars ordered by calendarName ascending.
-        An empty collection returns 200 with an empty items array.
+        An empty collection returns 200 with an empty calendars array.
       parameters:
         - name: limit
           in: query
@@ -80,6 +81,8 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 100
             default: 20
         - name: offset
           in: query
@@ -87,14 +90,16 @@ paths:
           required: false
           schema:
             type: integer
+            minimum: 1
+            maximum: 2147483647
             default: 1
         - name: calendarName
           in: query
-          description: Search by calendar name
+          description: Case-sensitive substring search by calendar name.
           required: false
           schema:
             type: string
-            default: null
+            maxLength: 128
         - name: migrated
           in: query
           description: Flag to determine if its migrated Calendar
@@ -155,7 +160,7 @@ paths:
         Replaces all writable calendar fields. Requires EDITOR or ADMIN.
         The request body's calendarName must match the path calendar_name.
         Renaming and creation through this operation are not supported.
-        Duplicate dates are rejected.
+        Duplicate dates are rejected. Omitted dates are treated as an empty list.
       requestBody:
         required: true
         content:
@@ -189,17 +194,16 @@ paths:
       operationId: getCalendarDates
       summary: Get calendar dates
       description: |
-        Returns the calendar's stored dates as a JSON array 
-        full-date strings, sorted ascending. An empty calendar returns [].
-        Merges the dates with the exclude calendar if specified.
+        Returns the calendar's stored dates as a JSON array of full-date strings,
+        sorted ascending. An empty calendar returns []. If excludeCalendar is
+        specified, subtract its stored dates. Either missing calendar returns 404.
       parameters:
         - in: query
           name: excludeCalendar
           required: false
           description: The exclude calendar name if applicable.
           schema:
-            type: string
-            example: 'exclude_calendar'
+            $ref: '#/components/schemas/CalendarName'
       responses:
         '200':
           description: Calendar dates retrieved successfully.
@@ -227,13 +231,15 @@ paths:
       operationId: uploadCalendarDates
       summary: Upload calendar dates from a CSV file
       description: |
-        Requires EDITOR or ADMIN. Supports both updating dates for existing calendars or creating new calendar
+        Requires EDITOR or ADMIN. Creates the calendar if it does not exist.
 
         Accepts a json request body with the year in YYYY format and UTF-8 CSV file containing exactly one column with the header
         date. Each subsequent record must contain one full-date value
         (DD-MM-YYYY).
 
-        Atomically replaces the stored dates for that year. Duplicate or invalid dates will return an error and upload will fail. An empty file is invalid.
+        Atomically replaces the stored dates for that year and marks the calendar
+        as uploaded. Duplicate, invalid, or out-of-year dates are rejected.
+        At least one data row is required.
       requestBody:
         required: true
         content:
@@ -245,10 +251,12 @@ paths:
               properties:
                 data:
                   type: object
+                  additionalProperties: false
+                  required: [year]
                   properties:
                     year:
                       type: string
-                      format: YYYY
+                      pattern: '^[0-9]{4}$'
                       example: '2027'
                 file:
                   type: string
@@ -272,8 +280,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '413':
           description: Uploaded file exceeds the limit.
           content:
@@ -295,11 +301,11 @@ paths:
       operationId: getUploadedCalendars
       summary: Get uploaded calendars
       description: |
-        Returns the names of uploaded calendars as a JSON array of strings.
+        Returns uploaded calendar names and migration flags, ordered by name.
         An empty result returns [].
       responses:
         '200':
-          description: Calendar dates retrieved successfully.
+          description: Uploaded calendars retrieved successfully.
           content:
             application/json:
               schema:
@@ -310,8 +316,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -321,8 +325,8 @@ components:
       type: http
       scheme: bearer
       description: |
-        Required for every operation, including login.
-        Supply Authorization: Bearer <token>.
+        When authentication is enabled, supply an OAuth access token:
+        Authorization: Bearer <token>.
 
   parameters:
     CalendarName:
@@ -341,7 +345,8 @@ components:
       pattern: '^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$'
       description: |
         Starts with an ASCII letter or digit and contains only ASCII letters,
-        digits, underscores, and hyphens.
+        digits, underscores, and hyphens. The exact name uploadedCalendars is
+        reserved for the collection endpoint and cannot be created or uploaded.
       example: business-calendar
 
     UploadedCalendarNames:
@@ -350,6 +355,8 @@ components:
       description: Names of uploaded calendars.
       items:
         type: object
+        additionalProperties: false
+        required: [name, migrated]
         properties:
           name:
             $ref: '#/components/schemas/CalendarName'
@@ -357,13 +364,15 @@ components:
             type: boolean
             description: Whether the calendar has been migrated.
       example:
-        - business-calendar
-        - nyse-calendar
+        - name: business-calendar
+          migrated: false
+        - name: nyse-calendar
+          migrated: true
 
     CalendarDate:
       type: string
-      format: date
-      description: Valid  full-date in DD-MM-YYYY format.
+      pattern: '^[0-9]{2}-[0-9]{2}-[0-9]{4}$'
+      description: Valid calendar date in DD-MM-YYYY format.
       example: '25-12-2027'
 
     CalendarDates:
@@ -379,26 +388,24 @@ components:
     CalendarCreateRequest:
       type: object
       additionalProperties: false
-      allOf: 
-        - type: object
-          required:
-            - calendarName
-          properties:
-            calendarName:
-              $ref: '#/components/schemas/CalendarName'
-        - $ref: '#/components/schemas/CalendarWriteRequest'
+      required: [calendarName]
+      properties:
+        calendarName:
+          $ref: '#/components/schemas/CalendarName'
+        dates:
+          $ref: '#/components/schemas/CalendarDates'
 
     CalendarUpdateRequest:
       type: object
       additionalProperties: false
-      allOf: 
-        - type: object
-          required:
-            - calendarName
-          properties:
-            status:
-              $ref: '#/components/schemas/CalendarStatus'
-        - $ref: '#/components/schemas/CalendarWriteRequest'
+      required: [calendarName, status]
+      properties:
+        calendarName:
+          $ref: '#/components/schemas/CalendarName'
+        dates:
+          $ref: '#/components/schemas/CalendarDates'
+        status:
+          $ref: '#/components/schemas/CalendarStatus'
 
     CalendarStatus:
       type: string
@@ -409,16 +416,10 @@ components:
       example: ACTIVE
       
 
-    CalendarWriteRequest:
-      type: object
-      additionalProperties: false
-      properties:
-        dates:
-          $ref: '#/components/schemas/CalendarDates'
-
     Calendar:
       type: object
       additionalProperties: false
+      required: [calendarName, dates, migrated, uploaded, status, createdBy, createdAt, updatedAt]
       properties:
         calendarName:
           $ref: '#/components/schemas/CalendarName'
@@ -494,12 +495,14 @@ components:
             - '401'
             - '403'
             - '404'
+            - '413'
+            - '415'
             - '500'
-          example: 400
+          example: '400'
         error:
           type: string
           description: Error description
-          example: Bad Requet
+          example: Bad Request
         message:
           type: string
           minLength: 1
@@ -524,27 +527,11 @@ components:
           example: Must be a valid date in DD-MM-YYYY format.
 
   responses:
-    UserNotFound:
-      description: No user exists with the specified ID.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
-    UserConflict:
-      description: |
-        The username already exists, or the operation would delete,
-        deactivate, or demote the last active ADMIN.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
     BadRequest:
       description: |
         Malformed request or validation failure, including invalid dates,
         duplicate dates, invalid pagination, mismatched calendar names,
-        missing fields, or malformed CSV content.
+        missing fields, a duplicate calendar name on creation, or malformed CSV content.
       content:
         application/json:
           schema:
@@ -552,9 +539,7 @@ components:
 
     Unauthorized:
       description: |
-        Bearer token is missing, invalid, or expired; for login, supplied
-        username or password may also be invalid. Credential failures do not
-        reveal whether a username exists.
+        Bearer access token is missing, invalid, or expired.
       headers:
         WWW-Authenticate:
           description: Bearer authentication challenge.
@@ -577,13 +562,6 @@ components:
 
     NotFound:
       description: No calendar exists with the specified name.
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-
-    Conflict:
-      description: A calendar with the specified name already exists.
       content:
         application/json:
           schema:
