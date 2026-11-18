@@ -5,7 +5,7 @@ info:
   description: |
     API for managing named calendars and their dates.
 
-    When authentication is enabled (the default), all operations require an OAuth
+    When authentication is enabled, all operations require an OAuth
     access token in the Authorization header: Authorization: Bearer <token>.
     Obtain the access token from the configured identity provider; this API does
     not provide a login endpoint. Local development may explicitly disable auth.

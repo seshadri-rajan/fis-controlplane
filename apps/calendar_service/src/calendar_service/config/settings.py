@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     auto_create_schema: bool = True
     upload_max_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
 
-    auth_enabled: bool = True
+    auth_enabled: bool = False
     oauth_mode: Literal["jwt", "introspection"] = "jwt"
     oauth_issuer: str = ""
     oauth_audience: str = ""

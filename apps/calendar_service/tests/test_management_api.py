@@ -130,6 +130,13 @@ def test_upload_replace_year_and_exclude_dates(client):
     assert client.get(dates_path).json() == ["01-01-2027", "31-01-2027", "01-01-2028"]
 
 
+def test_starts_without_auth_configuration_by_default(db_path, monkeypatch):
+    monkeypatch.chdir(db_path.parent)
+    monkeypatch.delenv("CALENDAR_AUTH_ENABLED", raising=False)
+    with TestClient(app) as local:
+        assert local.post(BASE, json={"calendarName": "local"}).status_code == 201
+
+
 def test_auth_enabled_without_provider_fails_startup(db_path, monkeypatch):
     monkeypatch.setenv("CALENDAR_AUTH_ENABLED", "true")
     monkeypatch.setenv("CALENDAR_OAUTH_ISSUER", "")

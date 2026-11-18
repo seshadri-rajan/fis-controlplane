@@ -28,9 +28,11 @@ at the management database.
 
 ## Enable OAuth
 
-Auth defaults to enabled and startup fails if required provider settings are missing. Clients
-obtain an **access token** from the provider and send `Authorization: Bearer <token>`. Configure
-the provider to issue tokens for this API, not ID tokens for a client application.
+Auth defaults to disabled for local development. Before deployment, set
+`CALENDAR_AUTH_ENABLED=true` and configure the provider below. With auth enabled, startup fails
+if required provider settings are missing. Clients obtain an **access token** from the provider
+and send `Authorization: Bearer <token>`. Configure the provider to issue tokens for this API,
+not ID tokens for a client application.
 
 | Setting | Purpose |
 |---|---|

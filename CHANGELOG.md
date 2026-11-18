@@ -9,11 +9,10 @@ The backend and web app now use all seven operations in the
 fresh date-only database; there is no migration from the previous schema. The `/api/ui` routes,
 local login, and rule-preview screen were removed. The Airflow client was not migrated.
 
-OAuth is enabled by default. Configure a provider for JWT validation via JWKS or opaque-token
-validation via introspection. Create, update, and upload require `EDITOR` or `ADMIN`. The web UI
-accepts an access token entered by the user and keeps it only in memory. For local development,
-`CALENDAR_AUTH_ENABLED=false` allows reads and writes without a token; do not use that mode in
-production.
+OAuth is disabled by default for local development. Before deployment, set
+`CALENDAR_AUTH_ENABLED=true` and configure a provider for JWT validation via JWKS or opaque-token
+validation via introspection. When enabled, create, update, and upload require `EDITOR` or `ADMIN`.
+The web UI accepts an access token entered by the user and keeps it only in memory.
 
 #### Added
 
