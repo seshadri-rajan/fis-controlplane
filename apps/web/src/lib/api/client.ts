@@ -1,20 +1,34 @@
-import type { components } from "./schema";
+import type { CalendarStatusFields, RunRecord } from "./proposed";
+import type { components as specComponents } from "./spec";
 
-export type PreviewRequest = components["schemas"]["PreviewRequest"];
-export type PreviewResponse = components["schemas"]["PreviewResponse"];
-export type PreviewDate = components["schemas"]["PreviewDate"];
-export type RuleSummary = components["schemas"]["RuleSummary"];
-export type Weekday = components["schemas"]["Weekday"];
-export type HolidayPolicy = components["schemas"]["HolidayPolicy"];
-export type CollisionPolicy = components["schemas"]["CollisionPolicy"];
-export type BoundaryPolicy = components["schemas"]["BoundaryPolicy"];
+type SpecUser = specComponents["schemas"]["User"];
+type SpecLoginRequest = specComponents["schemas"]["LoginRequest"];
+export type SpecCalendar = specComponents["schemas"]["Calendar"] & CalendarStatusFields;
+export type SpecCalendarCreate = specComponents["schemas"]["CalendarCreateRequest"];
+export type SpecCalendarWrite = specComponents["schemas"]["CalendarWriteRequest"];
 
-export type CurrentUserRead = components["schemas"]["CurrentUserRead"];
-export type LoginRequest = components["schemas"]["LoginRequest"];
-export type CalendarRead = components["schemas"]["CalendarRead"];
-export type CalendarDateRead = components["schemas"]["CalendarDateRead"];
-export type AuditEntryRead = components["schemas"]["AuditEntryRead"];
-export type ChangeRequestRead = components["schemas"]["ChangeRequestRead"];
+/**
+ * UI-owned session user. Adapted from the new backend's `User` so components do not
+ * depend on wire field names; only this adapter changes if the contract does.
+ */
+export type AuthUser = { id: string; user_name: string; roles: string[] };
+
+function toAuthUser(user: SpecUser): AuthUser {
+  return { id: user.id, user_name: user.username, roles: user.role };
+}
+
+// The spec has no /me or /logout, so the session lives client-side.
+const SESSION_KEY = "calendar-session";
+type StoredSession = { token: string | null; user: AuthUser };
+
+function readSession(): StoredSession | null {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  return raw ? (JSON.parse(raw) as StoredSession) : null;
+}
+
+function clearSession(): void {
+  sessionStorage.removeItem(SESSION_KEY);
+}
 
 export class ApiError extends Error {
   constructor(
@@ -26,9 +40,15 @@ export class ApiError extends Error {
 }
 
 async function send(path: string, init?: RequestInit): Promise<Response> {
+  const token = readSession()?.token;
   const response = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: {
+      // For FormData the browser must set the multipart boundary itself.
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
   });
   if (!response.ok) {
     throw new ApiError(response.status, await describeFailure(response));
@@ -40,13 +60,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await (await send(path, init)).json()) as T;
 }
 
-async function requestVoid(path: string, init?: RequestInit): Promise<void> {
-  await send(path, init);
-}
-
 async function describeFailure(response: Response): Promise<string> {
   try {
     const body = await response.json();
+    if (typeof body?.message === "string") return body.message;
     if (typeof body?.detail === "string") return body.detail;
     if (Array.isArray(body?.detail)) {
       return body.detail.map((d: { msg?: string }) => d.msg ?? "invalid input").join("; ");
@@ -62,50 +79,123 @@ const json = (body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-// --- preview (unauthenticated by design, see RECORD O-32) ---
+// --- auth (new backend: POST /v1/login only; no /me or /logout) ---
 
-export function listRules(): Promise<RuleSummary[]> {
-  return request<RuleSummary[]>("/api/ui/preview/rules");
+export async function login(userName: string, password: string): Promise<AuthUser> {
+  const body: SpecLoginRequest = { username: userName, password };
+  const response = await send("/v1/login", json(body));
+  const user = toAuthUser((await response.json()) as SpecUser);
+  // Token delivery is not defined in the spec yet; assumed to be an Authorization response header.
+  const token = response.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? null;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, user } satisfies StoredSession));
+  return user;
 }
 
-export function fetchPreview(body: PreviewRequest): Promise<PreviewResponse> {
-  return request<PreviewResponse>("/api/ui/preview", json(body));
+export async function logout(): Promise<void> {
+  clearSession();
 }
 
-// --- auth ---
-
-export function login(body: LoginRequest): Promise<CurrentUserRead> {
-  return request<CurrentUserRead>("/api/ui/auth/login", json(body));
+/** Resolves to null when not signed in. */
+export async function restoreSession(): Promise<AuthUser | null> {
+  return readSession()?.user ?? null;
 }
 
-export function logout(): Promise<void> {
-  return requestVoid("/api/ui/auth/logout", { method: "POST" });
+// --- calendars (new backend, /v1) ---
+
+async function listAllCalendars(filters: Record<string, string> = {}): Promise<SpecCalendar[]> {
+  const calendars: SpecCalendar[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    // `offset` is the page number in this spec (API-015).
+    const query = new URLSearchParams({ ...filters, limit: "100", offset: String(page) });
+    const result = await request<specComponents["schemas"]["CalendarPage"]>(
+      `/v1/calendars?${query}`,
+    );
+    calendars.push(...result.calendars);
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+  return calendars;
 }
 
-/** Resolves to null when not signed in, so callers do not treat 401 as a failure. */
-export async function fetchMe(): Promise<CurrentUserRead | null> {
-  try {
-    return await request<CurrentUserRead>("/api/ui/auth/me");
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 401) return null;
-    throw error;
-  }
+export function listCalendars(): Promise<SpecCalendar[]> {
+  return listAllCalendars();
 }
 
-// --- calendars ---
-
-export function listCalendars(includeInactive = false): Promise<CalendarRead[]> {
-  return request<CalendarRead[]>(`/api/ui/calendars?include_inactive=${includeInactive}`);
+/** Migrated (Autosys) calendars. The spec has no dedicated endpoint, so filter the list. */
+export function listMigratedCalendars(): Promise<SpecCalendar[]> {
+  return listAllCalendars({ migrated: "true" });
 }
 
-export function fetchCalendarDates(key: number, year: number): Promise<CalendarDateRead[]> {
-  return request<CalendarDateRead[]>(`/api/ui/calendars/${key}/dates?year=${year}`);
+/**
+ * Calendars created by uploading a file. The spec's list has a `migrated` filter but none for
+ * `uploaded`, so the non-migrated calendars are fetched and narrowed here (API-024).
+ */
+export async function listUploadedCalendars(): Promise<SpecCalendar[]> {
+  return (await listAllCalendars({ migrated: "false" })).filter((c) => c.uploaded === true);
 }
 
-export function fetchCalendarHistory(key: number): Promise<AuditEntryRead[]> {
-  return request<AuditEntryRead[]>(`/api/ui/calendars/${key}/history`);
+export function getCalendarDates(calendarName: string): Promise<string[]> {
+  return request<string[]>(`/v1/calendars/${encodeURIComponent(calendarName)}/dates`);
 }
 
-export function listChangeRequests(): Promise<ChangeRequestRead[]> {
-  return request<ChangeRequestRead[]>("/api/ui/change-requests");
+export function getCalendar(calendarName: string): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}`);
+}
+
+/**
+ * The spec's update replaces every writable field (API-028), so an edit of the dates alone must
+ * send the calendar's other fields back unchanged or they are wiped.
+ */
+export function toWriteRequest(calendar: SpecCalendar, dates: string[]): SpecCalendarWrite {
+  return {
+    dates,
+    holidayCalendar: calendar.holidayCalendar ?? "",
+    ...(calendar.dateRuleType !== undefined && { dateRuleType: calendar.dateRuleType }),
+    ...(calendar.dayOfWeek !== undefined && { dayOfWeek: calendar.dayOfWeek }),
+    ...(calendar.runDate !== undefined && { runDate: calendar.runDate }),
+    ...(calendar.runDay !== undefined && { runDay: calendar.runDay }),
+    ...(calendar.holidayRun !== undefined && { holidayRun: calendar.holidayRun }),
+    ...(calendar.holidayOffset !== undefined && { holidayOffset: calendar.holidayOffset }),
+  };
+}
+
+export function updateCalendar(
+  calendarName: string,
+  body: SpecCalendarWrite,
+): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/update`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Proposed endpoints, ADMIN only (API-026). */
+export function setCalendarActive(calendarName: string, active: boolean): Promise<SpecCalendar> {
+  const action = active ? "activate" : "deactivate";
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/${action}`, {
+    method: "POST",
+  });
+}
+
+export function createSpecCalendar(body: SpecCalendarCreate): Promise<SpecCalendar> {
+  return request<SpecCalendar>("/v1/calendars", json(body));
+}
+
+/** Atomically replaces the calendar's dates from a UTF-8 CSV with a single `date` column. */
+export function uploadCalendarDates(calendarName: string, file: File): Promise<SpecCalendar> {
+  const form = new FormData();
+  // Some OSes label .csv files as application/vnd.ms-excel; the spec requires text/csv.
+  form.append("file", new File([file], file.name, { type: "text/csv" }));
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/upload`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+// --- run history: proposed endpoint, not in the spec (API-029) ---
+
+export function listRunHistory(): Promise<RunRecord[]> {
+  return request<RunRecord[]>("/v1/run-history");
 }

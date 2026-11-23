@@ -1,0 +1,68 @@
+[
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-17T08:14:38.35787-04:00",
+        "start_date": "2026-08-17T08:12:33.811987-04:00",
+        "elapsed_time": "00:02:04.545883",
+        "business_date": "260817"
+    },
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-17T08:14:38.35787-04:00",
+        "start_date": "2026-08-17T08:12:33.811987-04:00",
+        "elapsed_time": "00:02:04.545883",
+        "business_date": "260817"
+    },
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-13T06:03:43.204445-04:00",
+        "start_date": "2026-08-13T06:02:42.052649-04:00",
+        "elapsed_time": "00:01:01.151796",
+        "business_date": "260813"
+    },
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-13T06:03:43.204445-04:00",
+        "start_date": "2026-08-13T06:02:42.052649-04:00",
+        "elapsed_time": "00:01:01.151796",
+        "business_date": "260813"
+    },
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-12T05:34:48.577896-04:00",
+        "start_date": "2026-08-12T05:33:45.375398-04:00",
+        "elapsed_time": "00:01:03.202498",
+        "business_date": "260812"
+    },
+    {
+		"source": "FFIO"
+        "type": "DAG",
+        "state": "success",
+        "dag_id": "amt_ap139412_exit_code_downstream",
+        "task_id": null,
+        "end_date": "2026-08-12T05:34:48.577896-04:00",
+        "start_date": "2026-08-12T05:33:45.375398-04:00",
+        "elapsed_time": "00:01:03.202498",
+        "business_date": "260812"
+    }
+]

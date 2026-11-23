@@ -1,10 +1,16 @@
 # Decision Record — Airflow Calendar Service & Metadata Control Plane
 
-Last updated: 2026-10-12
+Last updated: 2026-10-14
 
-Scope: decisions agreed during review of
-[Airflow Enterprise Calendar Service Requirement Details Document.docx](Airflow%20Enterprise%20Calendar%20Service%20Requirement%20Details%20Document.docx)
-and [Airflow Metadata Control Plane on AWS.docx](Airflow%20Metadata%20Control%20Plane%20on%20AWS.docx).
+Scope: decisions agreed during review of the requirement documents under
+[req-details/](req-details/). **Version 2 was received on 2026-10-14 and changes the calendar
+model materially — read [section 13](#13-requirements-v2-delta-2026-10-14) before relying on
+anything above it.**
+
+| Version | Location |
+|---|---|
+| v1 | [req-details/v1/](req-details/v1/) — the basis for sections 1 to 12 |
+| v2 | [req-details/v2/](req-details/v2/) — current; delta in section 13 |
 
 ---
 
@@ -20,7 +26,7 @@ and [Airflow Metadata Control Plane on AWS.docx](Airflow%20Metadata%20Control%20
 | D-06 | Airflow integration is a **custom `Timetable` registered through an Airflow plugin**, parameterised by calendar name, reading from a locally cached calendar snapshot. See section 10. | **Proposed** — pending Airflow version confirmation (O-16) | 2026-10-12 |
 | D-07 | We deliver the **plugin package only**. Installation, DAG wiring, deployment and operation inside BU Airflow environments are **Fidelity's responsibility**. See section 10.7. | Agreed | 2026-10-12 |
 | D-08 | **Single region** for holidays in this phase. One holiday calendar applies to all business and extended calendars; no per-region or per-BU holiday variation. | Agreed | 2026-10-12 |
-| D-09 | The **extended rule list is supplied by Fidelity** and seeded by us as backend reference data. No UI to create or edit rules; users only select from the dropdown. | Agreed | 2026-10-12 |
+| D-09 | ~~The extended rule list is supplied by Fidelity and seeded by us as backend reference data. No UI to create or edit rules.~~ **Superseded by requirements v2 (section 13.2):** users build recurrence patterns through the UI. | **Superseded** 2026-10-14 | 2026-10-12 |
 | D-10 | The four-eyes gate ships **behind a configuration flag** (`approval_required`, default off). The `calendar_change_request` table and every mutation path exist from the first migration either way, so enabling the gate changes one branch rather than a rewrite. Allows build to proceed while S-13 is open. | Agreed | 2026-10-12 |
 
 > **Consequence of D-05:** the system outlives the engagement. Every item marked "deferred" or "TBD" in this record either gets closed inside the contracted year or transfers to Fidelity at handover. There is no third option. See sections 7 and 9.
@@ -151,13 +157,15 @@ Carried from document review; not yet actioned in the source documents.
 | S-04 | `calendar_dates` | No `UNIQUE (calendar_key, calendar_date)` — duplicate dates possible. |
 | S-05 | `calendar_dates` | No index supporting the hot path (lookup by calendar + date). |
 | S-06 | `holiday_dates` | `holiday_calendar_id` has no FK, and nothing links a business calendar to the holiday calendar that applies to it. **Resolved for this phase by D-08 (single region).** Keep the linkage column and FK in place rather than hardcoding a single calendar — multi-region then stays additive. |
-| S-07 | `Extended_rules` | `CREATE TABLE Extended_rules ()` has a stray empty parenthesis list and the FK column is missing. |
-| S-08 | `Extended_rules` | Near-duplicate of `calendar_rule`; purpose of having both is unclear. |
+| S-07 | `Extended_rules` | `CREATE TABLE Extended_rules ()` has a stray empty parenthesis list and the FK column is missing. **Partly fixed in v2**: the table is merged away, but the stray `()` survives on `Calendar_rules`. |
+| S-08 | `Extended_rules` | Near-duplicate of `calendar_rule`; purpose of having both is unclear. **Fixed in v2**: merged into a single `Calendar_rules` table. |
 | S-09 | all | Identifier `Calendar_rule _id` contains a space; `creted_by` typo; inconsistent casing. |
 | S-10 | all | `TIMESTAMP` used instead of `TIMESTAMPTZ`. Material defect in a scheduling product. |
 | S-11 | `audit_logs` | `old_value` / `new_value` typed `BLOB` (not a PostgreSQL type) — makes the audit trail unqueryable. Use `JSONB`. |
 | S-12 | — | `BU_ID` / `App_ID` referenced throughout but no `business_unit` or `application` table exists. |
 | S-13 | — | No approval / pending-change table exists, so the stated 4-eyes requirement has no implementation. `audit_logs` only records after the fact. |
+| S-14 | `holiday_dates` | **New in v2.** Gains `FOREIGN KEY (calendar_key) REFERENCES calendar(calendar_key)`. The table already has `holiday_calendar_id`; pointing it at the run-calendar table conflates holiday calendars with run calendars, and the `calendar_key` column is not declared. |
+| S-15 | `Calendar_rules` | **New in v2.** The merged table has **no rule name column** — v1's `Calendar_rule_nm VARCHAR(100) UNIQUE NOT NULL` is gone. It also carries no `created_by` or `updated_at`, unlike every other table. |
 
 ---
 
@@ -170,7 +178,7 @@ Carried from document review; not yet actioned in the source documents.
 | O-03 | First-Admin bootstrap mechanism. | TBD | Open |
 | O-04 | **2026/2027 date cliff** — dates are generated for 2026 and 2027 only. Per D-05 the SOW covers one year, so building beyond 2027 is out of contract. The cliff itself does not go away: every calendar returns nothing from 2028-01-01 unless Fidelity runs a rollover. Deliverable is a documented, tested rollover procedure plus the generation script, handed over — not a silent omission. See R-06. | TBD | Open — reframed as handover |
 | O-05 | Calendar Service failure mode. It sits on the critical path of every DAG run; behaviour when unavailable (fail / skip / run) is undefined. No HA, SLA, latency target, caching or local fallback. | TBD | Open |
-| O-06 | Skip-vs-shift contradiction: "Monday holiday -> run Tuesday" against a calendar that already includes Tuesday produces either a duplicate or a silently merged run. **Demonstrated against the preview API — see 12.1; for a Mon-Fri calendar the documented behaviour is indistinguishable from simply skipping the run.** | TBD | Open — evidence available |
+| O-06 | Skip-vs-shift contradiction on a calendar that already includes the shift target. **Resolved by requirements v2 (13.3):** the user chooses NEXT, PREV, SKIP or NONE per calendar. `NONE` — run on the holiday anyway — is the option that did not previously exist, and it is what preserves the run count on a dense Mon-Fri calendar. | — | **Resolved by v2** |
 | O-07 | Month-end / quarter-end rules can roll forward into the next period. Boundary behaviour undefined. | TBD | Open |
 | O-08 | Business-days vs extended-rules mutual exclusivity is a UI behaviour only; the API can still create invalid calendars. Needs a DB constraint. | TBD | Open |
 | O-09 | `NextRunDay()` contract undefined: input/output types, timezone, DST, catchup/backfill, idempotency, behaviour when today is already valid. Shape depends on D-06 — a Timetable needs `next_dagrun_info(after) -> DagRunInfo`, a short-circuit check needs `is_run_day(calendar, date) -> bool`. Not interchangeable. | TBD | Open |
@@ -192,13 +200,21 @@ Carried from document review; not yet actioned in the source documents.
 | O-25 | Network path and egress approval from each BU Airflow environment to the Calendar Service (TLS, VPC peering/PrivateLink, firewall rules). Fidelity-owned but blocking for first use. | TBD | Open |
 | O-26 | Support and escalation model after handover: how a BU raises a plugin defect, and what diagnostics they must supply. | TBD | Open |
 | O-27 | Which region, and the authoritative source of its holiday dates for 2026 and 2027 (D-08). | TBD | Open |
-| O-28 | **Delivery date for Fidelity's extended rule list** (D-09). Each distinct rule needs an evaluator implemented and tested in `calendar_core`; a rule row with no evaluator does nothing. Count and complexity drive the estimate, so this is needed before estimate lock. | TBD | Open — estimate-critical |
+| O-28 | ~~Delivery date for Fidelity's extended rule list.~~ **Largely dissolved by requirements v2 (13.2):** there is no fixed catalogue to wait for, because users build patterns in the UI. What remains is the migration mapping — which AutoSys rules map onto the new pattern model (see O-42). | TBD | **Mostly resolved by v2** |
 | O-29 | Behaviour when a supplied rule cannot be expressed by the engine (e.g. fiscal-calendar or nth-weekday-before-month-end variants). Escalation path and scope treatment. | TBD | Open |
 | O-30 | Whether a user may hold both Create and Approver roles simultaneously (see 11.4). Needs a constraint or a written accepted risk. | TBD | Open |
 | O-31 | **Surfaced during implementation.** When a calendar selects a weekend day (e.g. Saturday only) and that day is a holiday, does the run shift to the next non-weekend working day (currently Monday), or to the next *selected* day (the following Saturday)? Related to O-06 but distinct. | TBD | Open |
 | O-32 | `POST /api/ui/preview` and `GET /api/ui/preview/rules` are **deliberately unauthenticated**: both are pure computation over request-supplied input and expose no stored data. Confirm this is acceptable, or close it when rate limiting lands. | TBD | Open — confirm |
 | O-33 | Session secret management. An unset `CALENDAR_SESSION_SECRET` falls back to a per-process key, so sessions break across restarts and replicas. Must be set from Secrets Manager before deployment. | TBD | Open |
 | O-34 | **Found during screenshot capture.** A shifted run that cannot be placed inside the requested year is now **dropped**. Confirm this is the wanted behaviour, rather than deferring the run into the following year. See 12.4. | TBD | Open — confirm |
+| O-35 | **v2.** `Nth` and `Every Nth` are two separate fields on the recurrence builder with no definition. Is `Nth` the nth weekday of a period (2nd Monday) and `Every Nth` a pipe-delimited day-of-month list? The field hint only says "provide number from [1-31] separated by \|". | TBD | Open — blocks the rule engine |
+| O-36 | **v2.** Extended calendars now carry a Date Range (Start / End). Does the calendar run only inside that window? How does a range interact with per-year materialisation, and with a range that spans a year boundary? | TBD | Open |
+| O-37 | **v2.** "Extended calendar rules are managed by Fidelity. Any new rule to be created using UI." Those two sentences contradict each other. Who may create a rule, and does rule creation pass through the four-eyes gate? | TBD | Open |
+| O-38 | **v2.** Adjustment actions (NEXT / PREV / SKIP / NONE) are offered on Extended calendars only; Standard calendars are fixed at "next working business date". Deliberate, or should Standard be selectable too? | TBD | Open |
+| O-39 | **v2.** The Standard calendar form carries a Year field. Does choosing a different year create a new calendar, or extend the existing one with another year of dates? This decides whether a calendar is per-year or multi-year. | TBD | Open |
+| O-40 | **v2.** The explicit mutual-exclusivity statement was removed from the document, but the flow diagram still branches one-or-the-other. Confirm Standard and Extended remain mutually exclusive — we enforce it in the engine, the domain entity and a database constraint. | TBD | Open |
+| O-41 | **v2.** Terminology: the prose says "Standard Calendar", the flow diagram still says "Business Calendar". Confirm the term so UI, API and schema use one word. | TBD | Open |
+| O-42 | **v2.** Migration mapping: which AutoSys rules map onto the new recurrence-pattern model, and what happens to any that cannot be expressed? Replaces the catalogue question in O-28. | TBD | Open — estimate-critical |
 
 ---
 
@@ -441,3 +457,113 @@ free weekday to move a run onto, so *every* collision policy produces the same c
 run on a weekend or to run in the following year. The question put to the client should therefore
 be narrowed: *is losing the run acceptable, or must these calendars be allowed to run on a
 non-business day?* There is no third option.
+
+> **Answered by requirements v2.** The client introduced a fourth adjustment action, `NONE` —
+> ignore the holiday and run anyway. That is the "run on a non-business day" option, and it is
+> what preserves the run count. See 13.3.
+
+---
+
+## 13. Requirements v2 delta (2026-10-14)
+
+Source: [req-details/v2/](req-details/v2/) compared against [req-details/v1/](req-details/v1/).
+The UI prototypes moved out of the document text and into embedded images, so the mockups are only
+visible in the Word file.
+
+**Summary:** the service layer, persistence, approval, auth and operational jobs are unaffected.
+The *input model* of the rule engine and most of the calendar UI are superseded.
+
+### 13.1 Standard Calendar: weekday selection replaced by per-date selection
+
+| | v1 | v2 |
+|---|---|---|
+| User picks | Monday–Sunday checkboxes | Individual dates from a 12-month grid for a chosen year |
+| Stored as | A weekday pattern | An explicit set of dates |
+| Named | "Business Calendar" | "Standard Calendar" |
+
+> "Provide yearly view to users where they can select all business days at once… Users can select
+> valid date/dates from each month's calendar."
+
+**Impact.** `BusinessDaySpec(weekdays)` no longer models a standard calendar. The month grid we
+built as a read-only preview becomes the primary input control. Holiday resolution still applies:
+v2 keeps "if date falls on holiday, then by default next working business date will be used".
+
+### 13.2 Extended Calendar: fixed catalogue replaced by a user-built recurrence pattern
+
+v1 offered a dropdown of rules agreed with Fidelity, with additions explicitly deferred to a
+separate delivery. v2 replaces that with a pattern builder:
+
+- **Date Range** — Start and End
+- **Recurrence Pattern** — `Nth` and `Every Nth`, taking numbers 1–31 separated by `|`
+- **Specific Days** — Su to Sa checkboxes
+- **Adjustment** — see 13.3
+
+This **supersedes D-09** and largely dissolves **O-28**: there is no catalogue to wait for. It
+replaces five named evaluators with a general recurrence engine plus a builder UI, which is
+materially more work. The field semantics are undefined — see **O-35**.
+
+### 13.3 New: adjustment actions
+
+| Action | Behaviour | Maps to |
+|---|---|---|
+| NEXT (N) | Shift forward to the next available business day | `HolidayPolicy.SHIFT_FORWARD` |
+| PREV (P) | Shift backward to the previous available business day | `HolidayPolicy.SHIFT_BACKWARD` |
+| SKIP (S) | Cancel that occurrence entirely | `HolidayPolicy.SKIP` |
+| **NONE (O)** | **Ignore the holiday and run anyway** | **No equivalent — new** |
+
+`NONE` is the significant addition. It resolves **O-06** and overturns the conclusion in 12.4:
+there *is* a third option, and the client has specified it. Stated use case is "critical system
+backups that must run regardless of calendar holidays".
+
+Offered on Extended calendars only; Standard is fixed at NEXT. See **O-38**.
+
+### 13.4 New screen: Business Unit calendar list
+
+Search by Business Unit Name, returning a table of Business Unit / Calendar Name / Application
+name. Our schema already carries `bu_id` and `app_id`, so the data model holds, but neither the
+list API nor the UI surfaces or filters on them.
+
+### 13.5 Schema changes
+
+**Improved**
+- `calendar_rule` and `Extended_rules` merged into a single `Calendar_rules` table, which fixes
+  the duplication recorded as S-08.
+
+**New problems**
+- S-14 — `holiday_dates` gains a foreign key to `calendar(calendar_key)`, conflating holiday
+  calendars with run calendars.
+- S-15 — the merged `Calendar_rules` has no rule name column, and rules are now scoped to a single
+  calendar rather than shared.
+
+**Still unfixed from v1:** S-01, S-02, S-04, S-05, S-06, S-07 (the stray `()` survives), S-09,
+S-10, S-11, S-12.
+
+### 13.6 Control plane
+
+One addition, and it is relevant to a risk we raised:
+
+> "For fallback scenario, Airflow stable REST API will be used. This is not covered as part of
+> Phase 1 delivery. Will be covered in future scopes."
+
+This acknowledges **O-13** — fire-and-forget listeners with no delivery guarantee — and defers the
+mitigation beyond Phase 1. The risk therefore stands for Phase 1, now explicitly accepted rather
+than unnoticed. Worth confirming that the Phase 1 dashboard will not be treated as authoritative
+in the meantime.
+
+### 13.7 What v2 does not address
+
+O-19 (Airflow version), S-13 (what a four-eyes approval approves), O-05 (availability target),
+O-04 / R-06 (the 2028 date cliff), and every non-functional requirement.
+
+### 13.8 Effect on work already built
+
+| Area | Status |
+|---|---|
+| Persistence, migrations, audit, approval, auth, RBAC | Unaffected |
+| Materialisation, `calendar_date`, rollover and coverage jobs | Unaffected |
+| Holiday calendar handling | Unaffected |
+| `HolidayPolicy` | Extend with `NONE` |
+| `BusinessDaySpec` weekday model | **Superseded** by per-date selection |
+| Five named rule evaluators | **Superseded** by recurrence patterns |
+| Preview and calendar UI | **Rework** — grid becomes an input, dropdown becomes a builder |
+| Calendar list | Add Business Unit and Application |

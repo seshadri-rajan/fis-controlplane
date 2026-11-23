@@ -13,8 +13,10 @@ authentication" — from an accepted risk into a non-issue, for roughly zero ext
 ```
 src/
 ├── features/              Vertical slices. Most work happens here.
-│   ├── calendars/         List, detail, editor, approval queue
-│   ├── preview/           Calendar date preview on a month grid
+│   ├── navigation/        Main navbar, route paths (BASE_PATH), calendar sub-tab context
+│   ├── home/              Home page (placeholder)
+│   ├── metadata/          Metadata page (placeholder)
+│   ├── calendars/         Create, list, detail, month grid, Calendar section (sub-tabs)
 │   ├── dag-runs/          Control plane view
 │   └── auth/              Login, password change
 ├── components/ui/         shadcn/ui primitives. Generated, rarely hand-edited.
@@ -27,6 +29,27 @@ src/
 Organised by **feature**, not by file type. A change to the calendar editor should touch one
 directory, not five.
 
+## Navigation and routes
+
+The UI is meant to be embedded in the Control Plane dashboard, so the navbar mirrors theirs: a dark
+gradient bar titled **Control Plane** with three menu items — **Home**, **Metadata**, **Calendar**.
+The Calendars / Create sub-tabs exist only inside **Calendar**.
+
+All routes live under one prefix, `BASE_PATH` (`/controlPlane`), defined once in
+`src/features/navigation/paths.ts`:
+
+| URL | Page |
+|---|---|
+| `/controlPlane` | Home |
+| `/controlPlane/metadata` | Metadata |
+| `/controlPlane/calendar` | redirects to `/controlPlane/calendar/calendars` |
+| `/controlPlane/calendar/calendars` | Calendar → Calendars tab |
+| `/controlPlane/calendar/create` | Calendar → Create tab |
+
+Older URLs (`/`, `/calendars`, `/create`, `/preview`) and unknown paths redirect to the matching new
+URL or to Home. Signing in or out lands on Home. Home and Metadata are placeholders until the host
+apps provide their content.
+
 ## Generate the API client, do not hand-write it
 
 Types come from the FastAPI OpenAPI schema. The calendar payloads are nested enough that
@@ -34,17 +57,14 @@ hand-maintained types will drift, and drift here means a UI that silently sends 
 
 ## Build order
 
-The first screen worth building is **preview**, not CRUD.
+Calendars are created by **uploading a file** (a new calendar, or new dates for an existing or
+migrated one) and amended from the Calendars list. There is no rule-based creation: the product
+team removed it on 2026-11-06, so there is no rule form, preview or holiday-calendar picker.
+`features/calendars/README.md` describes the current flow.
 
-Pick a calendar or rule, see the generated dates rendered on a month grid with holidays and shifts
-highlighted. It demos well, it is the feature users will rely on daily, and it makes the
-undecided rule semantics (O-06, O-07) visible — a stakeholder looks at August, sees the 15th
-shifted to the 16th, and rules on it in seconds.
-
-**Do not build mutation screens until the approval model is settled** (RECORD.md section 11).
-Four-eyes reshapes every editing flow: "Submit" becomes "Submit for approval", plus a diff view, a
-pending queue and a reviewer screen. Read-only screens — preview, list, detail — are safe to build
-now.
+**Editing an existing calendar is still blocked on S-13** for the four-eyes (approval) flow. The
+amend screen applies changes directly against the mocked API until the client confirms what an
+approval actually approves.
 
 ## Stack
 
