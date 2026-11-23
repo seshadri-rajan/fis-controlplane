@@ -1,23 +1,34 @@
-import type { operations } from "./schema";
+import type { CalendarStatusFields, RunRecord } from "./proposed";
+import type { components as specComponents } from "./spec";
 
-type JsonBody<Operation extends { requestBody: { content: { "application/json": unknown } } }> =
-  Operation["requestBody"]["content"]["application/json"];
-type JsonResponse<Operation extends { content: { "application/json": unknown } }> =
-  Operation["content"]["application/json"];
+type SpecUser = specComponents["schemas"]["User"];
+type SpecLoginRequest = specComponents["schemas"]["LoginRequest"];
+export type SpecCalendar = specComponents["schemas"]["Calendar"] & CalendarStatusFields;
+export type SpecCalendarCreate = specComponents["schemas"]["CalendarCreateRequest"];
+export type SpecCalendarWrite = specComponents["schemas"]["CalendarWriteRequest"];
 
-export type Calendar = JsonResponse<operations["getCalendar"]["responses"][200]>;
-export type CalendarPage = JsonResponse<operations["listCalendars"]["responses"][200]>;
-type CalendarDates = JsonResponse<operations["getCalendarDates"]["responses"][200]>;
-type UploadedCalendars = JsonResponse<operations["getUploadedCalendars"]["responses"][200]>;
-type CreateCalendar = JsonBody<operations["createCalendar"]>;
-type UpdateCalendar = JsonBody<operations["updateCalendar"]>;
-type ListQuery = NonNullable<operations["listCalendars"]["parameters"]["query"]>;
-type UploadMetadata =
-  operations["uploadCalendarDates"]["requestBody"]["content"]["multipart/form-data"]["data"];
-type ErrorBody = JsonResponse<operations["getCalendar"]["responses"][400]>;
+/**
+ * UI-owned session user. Adapted from the new backend's `User` so components do not
+ * depend on wire field names; only this adapter changes if the contract does.
+ */
+export type AuthUser = { id: string; user_name: string; roles: string[] };
 
-const calendarsPath = "/v1/calendars";
-const calendarPath = (name: string) => `${calendarsPath}/${encodeURIComponent(name)}`;
+function toAuthUser(user: SpecUser): AuthUser {
+  return { id: user.id, user_name: user.username, roles: user.role };
+}
+
+// The spec has no /me or /logout, so the session lives client-side.
+const SESSION_KEY = "calendar-session";
+type StoredSession = { token: string | null; user: AuthUser };
+
+function readSession(): StoredSession | null {
+  const raw = sessionStorage.getItem(SESSION_KEY);
+  return raw ? (JSON.parse(raw) as StoredSession) : null;
+}
+
+function clearSession(): void {
+  sessionStorage.removeItem(SESSION_KEY);
+}
 
 export class ApiError extends Error {
   constructor(
@@ -28,65 +39,160 @@ export class ApiError extends Error {
   }
 }
 
-export function createCalendarApi(token?: string) {
-  async function request<T>(path: string, init?: RequestInit): Promise<T> {
-    const headers = new Headers(init?.headers);
-    if (token) headers.set("Authorization", `Bearer ${token}`);
-    const response = await fetch(path, { ...init, headers, credentials: "omit" });
-    if (!response.ok) {
-      const body: Partial<ErrorBody> | null = await response.json().catch(() => null);
-      const message = body?.message ?? `Request failed (${response.status}).`;
-      const details = body?.details?.map(({ field, message }) => `${field}: ${message}`);
-      throw new ApiError(response.status, details?.length ? `${message} ${details.join("; ")}` : message);
+async function send(path: string, init?: RequestInit): Promise<Response> {
+  const token = readSession()?.token;
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      // For FormData the browser must set the multipart boundary itself.
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init?.headers,
+    },
+  });
+  if (!response.ok) {
+    throw new ApiError(response.status, await describeFailure(response));
+  }
+  return response;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await (await send(path, init)).json()) as T;
+}
+
+async function describeFailure(response: Response): Promise<string> {
+  try {
+    const body = await response.json();
+    if (typeof body?.message === "string") return body.message;
+    if (typeof body?.detail === "string") return body.detail;
+    if (Array.isArray(body?.detail)) {
+      return body.detail.map((d: { msg?: string }) => d.msg ?? "invalid input").join("; ");
     }
     return response.json();
   }
 
-  function write<T>(path: string, method: "POST" | "PATCH", body: CreateCalendar | UpdateCalendar) {
-    return request<T>(path, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
+const json = (body: unknown): RequestInit => ({
+  method: "POST",
+  body: JSON.stringify(body),
+});
 
+// --- auth (new backend: POST /v1/login only; no /me or /logout) ---
+
+export async function login(userName: string, password: string): Promise<AuthUser> {
+  const body: SpecLoginRequest = { username: userName, password };
+  const response = await send("/v1/login", json(body));
+  const user = toAuthUser((await response.json()) as SpecUser);
+  // Token delivery is not defined in the spec yet; assumed to be an Authorization response header.
+  const token = response.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") ?? null;
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, user } satisfies StoredSession));
+  return user;
+}
+
+export async function logout(): Promise<void> {
+  clearSession();
+}
+
+/** Resolves to null when not signed in. */
+export async function restoreSession(): Promise<AuthUser | null> {
+  return readSession()?.user ?? null;
+}
+
+// --- calendars (new backend, /v1) ---
+
+async function listAllCalendars(filters: Record<string, string> = {}): Promise<SpecCalendar[]> {
+  const calendars: SpecCalendar[] = [];
+  let page = 1;
+  let totalPages = 1;
+  do {
+    // `offset` is the page number in this spec (API-015).
+    const query = new URLSearchParams({ ...filters, limit: "100", offset: String(page) });
+    const result = await request<specComponents["schemas"]["CalendarPage"]>(
+      `/v1/calendars?${query}`,
+    );
+    calendars.push(...result.calendars);
+    totalPages = result.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+  return calendars;
+}
+
+export function listCalendars(): Promise<SpecCalendar[]> {
+  return listAllCalendars();
+}
+
+/** Migrated (Autosys) calendars. The spec has no dedicated endpoint, so filter the list. */
+export function listMigratedCalendars(): Promise<SpecCalendar[]> {
+  return listAllCalendars({ migrated: "true" });
+}
+
+/**
+ * Calendars created by uploading a file. The spec's list has a `migrated` filter but none for
+ * `uploaded`, so the non-migrated calendars are fetched and narrowed here (API-024).
+ */
+export async function listUploadedCalendars(): Promise<SpecCalendar[]> {
+  return (await listAllCalendars({ migrated: "false" })).filter((c) => c.uploaded === true);
+}
+
+export function getCalendarDates(calendarName: string): Promise<string[]> {
+  return request<string[]>(`/v1/calendars/${encodeURIComponent(calendarName)}/dates`);
+}
+
+export function getCalendar(calendarName: string): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}`);
+}
+
+/**
+ * The spec's update replaces every writable field (API-028), so an edit of the dates alone must
+ * send the calendar's other fields back unchanged or they are wiped.
+ */
+export function toWriteRequest(calendar: SpecCalendar, dates: string[]): SpecCalendarWrite {
   return {
-    list(query: ListQuery = {}) {
-      const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(query)) {
-        if (value !== undefined) params.set(key, String(value));
-      }
-      return request<CalendarPage>(`${calendarsPath}?${params}`);
-    },
-    get(name: string) {
-      return request<Calendar>(calendarPath(name));
-    },
-    dates(name: string, excludeCalendar?: string) {
-      const query = excludeCalendar ? `?${new URLSearchParams({ excludeCalendar })}` : "";
-      return request<CalendarDates>(`${calendarPath(name)}/dates${query}`);
-    },
-    uploaded() {
-      return request<UploadedCalendars>(`${calendarsPath}/uploadedCalendars`);
-    },
-    create(body: CreateCalendar) {
-      return write<JsonResponse<operations["createCalendar"]["responses"][201]>>(
-        calendarsPath, "POST", body,
-      );
-    },
-    update(name: string, body: UpdateCalendar) {
-      return write<JsonResponse<operations["updateCalendar"]["responses"][200]>>(
-        `${calendarPath(name)}/update`, "PATCH", body,
-      );
-    },
-    upload(name: string, metadata: UploadMetadata, file: File) {
-      const body = new FormData();
-      body.append("data", new Blob([JSON.stringify(metadata)], { type: "application/json" }), "data.json");
-      body.append("file", new Blob([file], { type: "text/csv" }), file.name);
-      return request<JsonResponse<operations["uploadCalendarDates"]["responses"][201]>>(
-        `${calendarPath(name)}/upload`, { method: "POST", body },
-      );
-    },
+    dates,
+    holidayCalendar: calendar.holidayCalendar ?? "",
+    ...(calendar.dateRuleType !== undefined && { dateRuleType: calendar.dateRuleType }),
+    ...(calendar.dayOfWeek !== undefined && { dayOfWeek: calendar.dayOfWeek }),
+    ...(calendar.runDate !== undefined && { runDate: calendar.runDate }),
+    ...(calendar.runDay !== undefined && { runDay: calendar.runDay }),
+    ...(calendar.holidayRun !== undefined && { holidayRun: calendar.holidayRun }),
+    ...(calendar.holidayOffset !== undefined && { holidayOffset: calendar.holidayOffset }),
   };
 }
 
-export type CalendarApi = ReturnType<typeof createCalendarApi>;
+export function updateCalendar(
+  calendarName: string,
+  body: SpecCalendarWrite,
+): Promise<SpecCalendar> {
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/update`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+/** Proposed endpoints, ADMIN only (API-026). */
+export function setCalendarActive(calendarName: string, active: boolean): Promise<SpecCalendar> {
+  const action = active ? "activate" : "deactivate";
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/${action}`, {
+    method: "POST",
+  });
+}
+
+export function createSpecCalendar(body: SpecCalendarCreate): Promise<SpecCalendar> {
+  return request<SpecCalendar>("/v1/calendars", json(body));
+}
+
+/** Atomically replaces the calendar's dates from a UTF-8 CSV with a single `date` column. */
+export function uploadCalendarDates(calendarName: string, file: File): Promise<SpecCalendar> {
+  const form = new FormData();
+  // Some OSes label .csv files as application/vnd.ms-excel; the spec requires text/csv.
+  form.append("file", new File([file], file.name, { type: "text/csv" }));
+  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/upload`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+// --- run history: proposed endpoint, not in the spec (API-029) ---
+
+export function listRunHistory(): Promise<RunRecord[]> {
+  return request<RunRecord[]>("/v1/run-history");
+}
