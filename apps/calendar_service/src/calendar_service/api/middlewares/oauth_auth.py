@@ -48,3 +48,12 @@ def require_editor(user: PrincipalDep) -> Principal:
 
 
 EditorDep = Annotated[Principal, Depends(require_editor)]
+
+
+def require_admin(user: PrincipalDep) -> Principal:
+    if "ADMIN" not in user.roles:
+        raise HTTPException(403, "This operation requires ADMIN.")
+    return user
+
+
+AdminDep = Annotated[Principal, Depends(require_admin)]

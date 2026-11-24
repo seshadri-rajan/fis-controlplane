@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException
 
 from .api.v1.calendars import router as calendars_router
+from .api.v1.run_history import router as run_history_router
 from .config.settings import get_settings
 from .infra.database.management import ManagementBase
 from .infra.database.session import get_engine
@@ -37,6 +38,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(title="Calendar Management API", version="1.0.0", lifespan=lifespan)
 app.include_router(calendars_router)
+app.include_router(run_history_router)
 
 
 @app.exception_handler(HTTPException)

@@ -1,19 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
-  createSpecCalendar,
   getCalendar,
   listMigratedCalendars,
   listUploadedCalendars,
   toWriteRequest,
   updateCalendar,
   uploadCalendarDates,
+  verifyDates,
 } from "../../lib/api/client";
-import type { ApiError, SpecCalendar } from "../../lib/api/client";
-import { MAX_UPLOAD_BYTES, datesCsv, parseDatesCsv, sampleCsv } from "../../lib/api/parseDatesCsv";
-import type { ParsedDates } from "../../lib/api/parseDatesCsv";
+import type { ApiError, SpecCalendar, UploadVerification } from "../../lib/api/client";
+import {
+  calendarWorkbook,
+  sampleCalendarWorkbook,
+  XLSX_MEDIA_TYPE,
+} from "../../lib/api/calendarWorkbook";
 import { isActive } from "../../lib/api/proposed";
 import { isPastDate, todayIso } from "../../lib/dates";
 import { useAuth } from "../auth/AuthProvider";
@@ -24,32 +27,14 @@ import MonthGrid, { Legend } from "./MonthGrid";
 
 type Mode = "new" | "upload";
 
-// The spec requires holidayCalendar on create, but uploaded calendars carry none by design
-// (review decision). Sent empty until the backend answers (API-005 in req-details/api-spec).
-const NO_HOLIDAY_CALENDAR = "";
-
-function downloadSample(year: number) {
-  const url = URL.createObjectURL(new Blob([sampleCsv(year)], { type: "text/csv;charset=utf-8" }));
+async function downloadSample(year: number) {
+  const workbook = await sampleCalendarWorkbook(year);
+  const url = URL.createObjectURL(workbook);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `sample-calendar-dates-${year}.csv`;
+  link.download = `calendar-upload-template-${year}.xlsx`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-async function readFile(file: File): Promise<ParsedDates> {
-  if (!file.name.toLowerCase().endsWith(".csv")) {
-    return {
-      dates: [],
-      errors: [
-        "Only CSV files are supported. Export the sheet as CSV (UTF-8) with a single column headed date.",
-      ],
-    };
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return { dates: [], errors: ["The file exceeds the 5 MiB limit."] };
-  }
-  return parseDatesCsv(await file.text());
 }
 
 function RadioGroup<T extends string>({
@@ -105,7 +90,10 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
   const [name, setName] = useState("");
   const [selectedName, setSelectedName] = useState(amend?.calendarName ?? "");
   const [file, setFile] = useState<File | null>(null);
-  const [parsed, setParsed] = useState<ParsedDates | null>(null);
+  const [verification, setVerification] = useState<UploadVerification | null>(null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const verificationRequestId = useRef(0);
   const thisYear = new Date().getFullYear();
   // Fixed when the page opens: a tab left open past midnight keeps one consistent "today".
   const [today] = useState(todayIso);
@@ -115,16 +103,30 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
     return [...new Set([thisYear, thisYear + 1, ...held])].sort();
   }, [amend, thisYear]);
   const [year, setYear] = useState(thisYear);
-  // Set once the calendar exists, so a retry after a failed upload does not create it twice.
-  const [createdName, setCreatedName] = useState<string | null>(null);
   const [saved, setSaved] = useState<SpecCalendar | null>(null);
   const [summary, setSummary] = useState<{ added: number; removed: number } | null>(null);
   // Bumped to remount the uncontrolled file input, which otherwise keeps showing the old file.
   const [fileInputKey, setFileInputKey] = useState(0);
 
-  const canWrite = has("EDITOR");
-  // An existing calendar's past dates are history; a brand-new calendar has none to protect.
-  const lockedBefore = mode === "upload" ? today : undefined;
+  async function verifyFile(chosen: File, selectedYear: number) {
+    const requestId = ++verificationRequestId.current;
+    setVerification(null);
+    setVerificationError(null);
+    setVerifying(true);
+    try {
+      const result = await verifyDates(chosen, selectedYear, isAmend);
+      if (requestId === verificationRequestId.current) setVerification(result);
+    } catch (error) {
+      if (requestId === verificationRequestId.current) {
+        setVerificationError(error instanceof Error ? error.message : "Date verification failed.");
+      }
+    } finally {
+      if (requestId === verificationRequestId.current) setVerifying(false);
+    }
+  }
+
+  const canWrite = isAmend ? has("ADMIN") : has("EDITOR");
+  const lockedBefore = today;
 
   // One list for "Upload dates": calendars created by upload, plus the migrated ones. Inactive
   // calendars can't be changed, so they are left out and only counted.
@@ -150,11 +152,26 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
       );
 
   // Only the selected year is shown and saved; dates the file holds for other years are ignored.
-  const yearDates = useMemo(
-    () => (parsed?.dates ?? []).filter((d) => d.startsWith(`${year}-`)),
-    [parsed, year],
+  const verifiedDates = useMemo(
+    () =>
+      (verification?.items ?? []).flatMap((item) =>
+        item.valid && item.date ? [item.date] : [],
+      ),
+    [verification],
   );
-  const ignoredCount = (parsed?.dates.length ?? 0) - yearDates.length;
+  const yearDates = useMemo(
+    () => verifiedDates.filter((date) => date.startsWith(`${year}-`)),
+    [verifiedDates, year],
+  );
+  const ignoredCount = verifiedDates.length - yearDates.length;
+  const fileErrors = useMemo(() => {
+    const errors = [...(verification?.errors ?? [])];
+    for (const item of verification?.items ?? []) {
+      errors.push(...item.errors.map((message) => `Row ${item.row}: ${message}`));
+    }
+    if (verificationError) errors.push(verificationError);
+    return errors;
+  }, [verification, verificationError]);
 
   // "Upload dates" only: the target calendar's own dates for the selected year — the set that
   // today's plain replace silently destroys, and what a merge-by-default needs to preserve.
@@ -170,7 +187,7 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
   // target changes. File dates in the past are dropped: history can't be added to.
   const [included, setIncluded] = useState<Set<string>>(new Set());
   useEffect(() => {
-    const fileYearDates = (parsed?.dates ?? []).filter((d) => d.startsWith(`${year}-`));
+    const fileYearDates = verifiedDates.filter((date) => date.startsWith(`${year}-`));
     const base =
       mode === "upload"
         ? [
@@ -179,7 +196,7 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
           ]
         : fileYearDates;
     setIncluded(new Set(base));
-  }, [parsed, year, mode, selected, today]);
+  }, [verifiedDates, year, mode, selected, today]);
   const fileDates = useMemo(() => new Set(yearDates), [yearDates]);
   const excludedCount = yearDates.filter((d) => !included.has(d)).length;
   const ignoredPastCount =
@@ -202,6 +219,15 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
   const save = useMutation({
     mutationFn: async (): Promise<SaveResult> => {
       if (mode === "upload") {
+        if (file) {
+          const verification = await verifyDates(file, year, isAmend);
+          if (!verification.valid) {
+            const rowErrors = verification.items.flatMap((item) =>
+              item.errors.map((message) => `Row ${item.row}: ${message}`),
+            );
+            throw new Error([...verification.errors, ...rowErrors].join("; "));
+          }
+        }
         // Read the calendar now, not a cached copy: the spec's update replaces every date and
         // field, so the other years, the past, and its other fields must be sent back unchanged.
         const fresh = await getCalendar(selectedName);
@@ -224,18 +250,22 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
 
       if (!file) throw new Error("No file selected");
       const newName = name.trim();
-      if (createdName !== newName) {
-        await createSpecCalendar({
-          calendarName: newName,
-          dates: [],
-          holidayCalendar: NO_HOLIDAY_CALENDAR,
-        });
-        setCreatedName(newName);
-      }
-      const csv = new File([datesCsv([...included].sort())], `calendar-dates-${year}.csv`, {
-        type: "text/csv",
+      const workbook = await calendarWorkbook([...included].sort());
+      const uploadFile = new File([workbook], `calendar-dates-${year}.xlsx`, {
+        type: XLSX_MEDIA_TYPE,
       });
-      return { calendar: await uploadCalendarDates(newName, csv), added: included.size, removed: 0 };
+      const verification = await verifyDates(uploadFile, year, false);
+      if (!verification.valid) {
+        const rowErrors = verification.items.flatMap((item) =>
+          item.errors.map((message) => `Row ${item.row}: ${message}`),
+        );
+        throw new Error([...verification.errors, ...rowErrors].join("; "));
+      }
+      return {
+        calendar: await uploadCalendarDates(newName, uploadFile, year, true),
+        added: included.size,
+        removed: 0,
+      };
     },
     onSuccess: ({ calendar, added, removed }) => {
       setSaved(calendar);
@@ -250,16 +280,26 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
     save.reset();
   }
 
-  async function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
     resetOutcome();
     const chosen = event.target.files?.[0] ?? null;
     setFile(chosen);
-    setParsed(chosen ? await readFile(chosen) : null);
+    if (chosen) {
+      void verifyFile(chosen, year);
+    } else {
+      verificationRequestId.current += 1;
+      setVerification(null);
+      setVerificationError(null);
+      setVerifying(false);
+    }
   }
 
   function clearFile() {
     setFile(null);
-    setParsed(null);
+    verificationRequestId.current += 1;
+    setVerification(null);
+    setVerificationError(null);
+    setVerifying(false);
     setFileInputKey((key) => key + 1);
     resetOutcome();
   }
@@ -267,18 +307,21 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
   function startOver() {
     setName("");
     setSelectedName("");
-    setCreatedName(null);
     clearFile();
   }
 
   const nameValid = CALENDAR_NAME.test(name.trim());
   const targetReady = mode === "new" ? nameValid : selectedName !== "";
-  const fileValid = !!parsed && parsed.errors.length === 0;
+  const fileValid = !!verification && verification.valid && fileErrors.length === 0 && !verifying;
   const fileReady = fileValid && included.size > 0;
   // Amend has no required file: it saves whatever changed, unless a chosen file is unusable.
   const showGrid = isAmend || fileValid;
   const ready = isAmend
-    ? canWrite && !saved && !isAtExistingDefault && !(parsed && parsed.errors.length > 0)
+    ? canWrite &&
+      !saved &&
+      !verifying &&
+      !isAtExistingDefault &&
+      !(file && (!verification || fileErrors.length > 0))
     : canWrite && targetReady && fileReady && !saved;
 
   const existingInYear = selected?.dates?.filter((d) => d.startsWith(`${year}-`)).length ?? 0;
@@ -293,8 +336,8 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
   if (!canWrite) {
     return (
       <p className="max-w-xl rounded-md bg-slate-100 p-3 text-sm text-slate-700">
-        Your roles ({user?.roles.join(", ")}) cannot upload calendars. Uploading requires EDITOR or
-        ADMIN.
+        Your roles ({user?.roles.join(", ")}) cannot {isAmend ? "amend" : "upload"} calendars.
+        {isAmend ? " Amending requires ADMIN." : " Uploading requires EDITOR or ADMIN."}
       </p>
     );
   }
@@ -319,7 +362,6 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
                 ["upload", "Upload dates"],
               ]}
               value={mode}
-              disabled={!!createdName}
               onChange={(value) => {
                 setMode(value);
                 setSelectedName("");
@@ -337,7 +379,6 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
                 id="calendar-name"
                 className={field}
                 value={name}
-                disabled={!!createdName}
                 onChange={(e) => {
                   setName(e.target.value);
                   resetOutcome();
@@ -345,7 +386,7 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
               />
               {name !== "" && !nameValid && (
                 <p className="mt-1 text-xs text-rose-700">
-                  Start with a letter or digit; use only letters, digits, “_” and “-”.
+                  Use 1 to 70 letters or digits only.
                 </p>
               )}
             </div>
@@ -422,8 +463,10 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
               value={year}
               disabled={!!saved}
               onChange={(e) => {
-                setYear(Number(e.target.value));
+                const nextYear = Number(e.target.value);
+                setYear(nextYear);
                 resetOutcome();
+                if (file) void verifyFile(file, nextYear);
               }}
             >
               {yearOptions.map((y) => (
@@ -436,38 +479,39 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
               {isAmend
                 ? "Past dates are locked. Dates in other years stay as they are."
                 : "Only dates in this year are shown and saved; other years in the file are ignored."}
-              {!isAmend && lockedBefore && " Past dates on an existing calendar are locked."}
+              {!isAmend && lockedBefore && " Past dates are locked and cannot be uploaded."}
             </p>
           </div>
 
           <div>
             <label htmlFor="calendar-file" className={label}>
-              {isAmend ? "Add dates from a file (optional)" : "Dates file (CSV)"}
+              {isAmend ? "Add dates from a file (optional)" : "Dates file (Excel)"}
             </label>
             <div className="rounded-md border-2 border-dashed border-slate-300 bg-slate-50 p-3 hover:border-slate-500">
               <input
                 key={fileInputKey}
                 id="calendar-file"
                 type="file"
-                accept=".csv,text/csv"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 className="block w-full cursor-pointer text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
                 onChange={onFileChange}
               />
             </div>
             <p className="mt-1 text-xs text-slate-500">
-              UTF-8 CSV, one column headed <code>date</code>, values as YYYY-MM-DD. Max 5 MiB.
+              One worksheet with a single <code>Calendar date</code> column. Dates must use{" "}
+              <code>YYYY-MM-DD</code>.{" "}
+              {isAmend
+                ? "Past dates are rejected."
+                : "Upload dates must be in the current or next year."}{" "}
+              Max 5 MiB.
             </p>
             <button
               type="button"
-              onClick={() => downloadSample(year)}
+              onClick={() => void downloadSample(year)}
               className="mt-2 text-xs font-medium text-slate-700 underline"
             >
-              Download sample CSV
+              Download Excel template
             </button>
-            <p className="mt-1 text-xs text-slate-500">
-              Editing in Excel? Format the date column as <code>yyyy-mm-dd</code> before saving as
-              CSV UTF-8, or Excel will rewrite the dates in your regional format.
-            </p>
           </div>
         </div>
 
@@ -497,9 +541,7 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
             <p role="alert" className="rounded-md bg-rose-50 p-2 text-sm text-rose-800">
               {mode === "new" && (save.error as ApiError).status === 409
                 ? `A calendar named "${name.trim()}" already exists.`
-                : createdName
-                  ? `Calendar "${createdName}" was created, but the upload failed: ${(save.error as Error).message} You can retry.`
-                  : (save.error as Error).message}
+                : (save.error as Error).message}
             </p>
           )}
 
@@ -532,25 +574,58 @@ export default function UploadCalendarPanel({ amend }: { amend?: SpecCalendar })
       <div className="space-y-4">
         {!file && !isAmend && (
           <p className="rounded-md bg-slate-100 p-3 text-sm text-slate-600">
-            Choose a CSV file to see its dates on the calendar before saving.
+            Choose an Excel workbook to see its dates on the calendar before saving.
           </p>
         )}
 
-        {parsed && parsed.errors.length > 0 && (
+        {verifying && (
+          <p role="status" className="rounded-md bg-slate-100 p-3 text-sm text-slate-600">
+            Checking each workbook date…
+          </p>
+        )}
+
+        {fileErrors.length > 0 && (
           <div role="alert" className="rounded-md bg-rose-50 p-3 text-sm text-rose-800">
-            <p className="font-medium">This file can’t be used:</p>
+            <p className="font-medium">Fix the workbook validation errors before saving:</p>
             <ul className="mt-1 list-disc pl-5">
-              {parsed.errors.slice(0, 10).map((message) => (
+              {fileErrors.slice(0, 10).map((message) => (
                 <li key={message}>{message}</li>
               ))}
             </ul>
-            {parsed.errors.length > 10 && <p className="mt-1">…and {parsed.errors.length - 10} more.</p>}
+            {fileErrors.length > 10 && <p className="mt-1">…and {fileErrors.length - 10} more.</p>}
+          </div>
+        )}
+
+        {!!verification?.items.length && (
+          <div className="max-h-80 overflow-auto rounded-md border border-slate-200 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="sticky top-0 bg-slate-100 text-xs text-slate-600">
+                <tr>
+                  <th className="px-3 py-2">Row</th>
+                  <th className="px-3 py-2">Calendar date</th>
+                  <th className="px-3 py-2">Result</th>
+                  <th className="px-3 py-2">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verification.items.map((item) => (
+                  <tr key={item.row} className="border-t border-slate-100">
+                    <td className="px-3 py-2 tabular-nums">{item.row}</td>
+                    <td className="px-3 py-2">{item.value ?? "—"}</td>
+                    <td className={`px-3 py-2 ${item.valid ? "text-emerald-700" : "text-rose-700"}`}>
+                      {item.valid ? "Valid" : "Error"}
+                    </td>
+                    <td className="px-3 py-2">{item.errors.join("; ") || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
 
         {fileValid && yearDates.length === 0 && (
           <p role="alert" className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-            The file has no dates in {year}. It has {parsed.dates.length} in other years; choose
+            The file has no dates in {year}. It has {verifiedDates.length} in other years; choose
             the year they belong to.
             {mode === "new" && " You can still pick dates manually on the calendar below."}
           </p>

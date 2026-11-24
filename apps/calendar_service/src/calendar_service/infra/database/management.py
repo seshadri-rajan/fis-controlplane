@@ -76,11 +76,13 @@ class ManagedCalendarRepository:
             await self.session.execute(text("BEGIN IMMEDIATE"))
 
     async def get(self, name: str, *, lock: bool = False) -> ManagedCalendar | None:
-        query = select(ManagedCalendar).where(ManagedCalendar.calendar_name == name)
+        query = (
+            select(ManagedCalendar)
+            .where(ManagedCalendar.calendar_name == name)
+            .options(selectinload(ManagedCalendar.dates))
+        )
         if lock:
             query = query.with_for_update()
-        else:
-            query = query.options(selectinload(ManagedCalendar.dates))
         return await self.session.scalar(query)
 
     def _ordered(self, query: Select[tuple[ManagedCalendar]]) -> Select[tuple[ManagedCalendar]]:

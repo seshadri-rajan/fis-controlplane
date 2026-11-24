@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from io import BytesIO
 
 import httpx
 import jwt
@@ -8,11 +9,14 @@ from calendar_service.infra.database.session import get_engine, get_session_fact
 from calendar_service.main import app
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi.testclient import TestClient
+from openpyxl import Workbook, load_workbook
 from sqlalchemy import create_engine, text
 
 BASE = "/v1/calendars"
 ISSUER = "https://identity.example.test"
 AUDIENCE = "calendar-api"
+UPLOAD_YEAR = datetime.now(UTC).year + 1
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 @pytest.fixture
@@ -32,7 +36,7 @@ def db_path(tmp_path, monkeypatch):
 @pytest.fixture
 def client(db_path, monkeypatch):
     monkeypatch.setenv("CALENDAR_AUTH_ENABLED", "false")
-    monkeypatch.setenv("CALENDAR_UPLOAD_MAX_BYTES", "128")
+    monkeypatch.setenv("CALENDAR_UPLOAD_MAX_BYTES", "5242880")
     with TestClient(app) as client:
         yield client
 
@@ -41,12 +45,35 @@ def create(client, name, *dates):
     return client.post(BASE, json={"calendarName": name, "dates": list(dates)})
 
 
-def upload(client, name, csv, *, year="2027", media_type="text/csv", data_type="application/json"):
+def xlsx(*values, header="Calendar date", extra_sheet=False):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append([header])
+    for value in values:
+        sheet.append(list(value) if isinstance(value, tuple) else [value])
+    if extra_sheet:
+        workbook.create_sheet("Unexpected")
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def upload(
+    client,
+    name,
+    workbook,
+    *,
+    create_only=False,
+    year=str(UPLOAD_YEAR),
+    media_type=XLSX_MEDIA_TYPE,
+    filename="calendar.xlsx",
+    data_type="application/json",
+):
     return client.post(
-        f"{BASE}/{name}/upload",
+        f"{BASE}/{name}/upload" + ("?createOnly=true" if create_only else ""),
         files={
             "data": (None, f'{{"year":"{year}"}}', data_type),
-            "file": ("calendar.csv", csv, media_type),
+            "file": (filename, workbook, media_type),
         },
     )
 
@@ -82,14 +109,15 @@ def test_calendar_lifecycle_and_audit(client, db_path):
     assert client.get(BASE, params={"migrated": "true"}).json()["calendars"] == []
     assert client.get(BASE, params={"offset": 0}).json()["details"][0]["field"] == "offset"
 
-    update = {"calendarName": "Test", "status": "INACTIVE", "dates": ["29-02-2028"]}
+    assert upload(client, "Test", xlsx(f"{UPLOAD_YEAR}-01-01")).status_code == 201
+    update = {"calendarName": "Test", "status": "ACTIVE", "dates": ["29-02-2028"]}
     assert client.patch(f"{BASE}/test/update", json=update).status_code == 400
     assert client.patch(f"{BASE}/Absent/update", json=update | {
         "calendarName": "Absent",
     }).status_code == 404
     changed = client.patch(f"{BASE}/Test/update", json=update)
     assert changed.status_code == 200
-    assert changed.json()["status"] == "INACTIVE"
+    assert changed.json()["status"] == "ACTIVE"
     assert changed.json()["dates"] == ["29-02-2028"]
     assert changed.json()["createdAt"] == initial["createdAt"]
     assert changed.json()["updatedAt"] > initial["updatedAt"]
@@ -99,18 +127,72 @@ def test_calendar_lifecycle_and_audit(client, db_path):
     try:
         with engine.connect() as conn:
             assert conn.execute(text("select action from audit_log order by audit_log_id")).scalars(
-            ).all() == ["CREATE", "CREATE", "UPDATE"]
+            ).all() == ["CREATE", "CREATE", "UPLOAD", "UPDATE"]
+    finally:
+        engine.dispose()
+
+
+def test_new_calendar_name_is_alphanumeric_and_limited_to_70(client):
+    assert create(client, "A" * 70).status_code == 201
+    assert create(client, "B" * 71).status_code == 400
+    assert create(client, "calendar_name").status_code == 400
+
+
+def test_create_calendar_from_upload_is_single_request_and_rejects_existing_name(client):
+    created = upload(
+        client,
+        "FromFile",
+        xlsx(f"{UPLOAD_YEAR}-01-01"),
+        create_only=True,
+    )
+    assert created.status_code == 201
+    assert created.json()["uploaded"] is True
+    assert created.json()["dates"] == [f"01-01-{UPLOAD_YEAR}"]
+
+    conflict = upload(
+        client,
+        "FromFile",
+        xlsx(f"{UPLOAD_YEAR}-01-02"),
+        create_only=True,
+    )
+    assert conflict.status_code == 409
+    assert client.get(f"{BASE}/FromFile").json()["dates"] == [f"01-01-{UPLOAD_YEAR}"]
+
+
+def test_admin_calendar_lifecycle_and_audit(client, db_path):
+    assert create(client, "ordinary").status_code == 201
+    assert client.post(f"{BASE}/ordinary/deactivate").status_code == 409
+
+    assert upload(client, "managed", xlsx(f"{UPLOAD_YEAR}-01-01")).status_code == 201
+    deactivated = client.post(f"{BASE}/managed/deactivate")
+    assert deactivated.status_code == 200
+    assert deactivated.json()["status"] == "INACTIVE"
+    activated = client.post(f"{BASE}/managed/activate")
+    assert activated.status_code == 200
+    assert activated.json()["status"] == "ACTIVE"
+
+    engine = create_engine(f"sqlite:///{db_path.as_posix()}")
+    try:
+        with engine.connect() as conn:
+            assert conn.execute(
+                text("select action from audit_log order by audit_log_id")
+            ).scalars().all() == ["CREATE", "UPLOAD", "DEACTIVATE", "ACTIVATE"]
     finally:
         engine.dispose()
 
 
 def test_upload_replace_year_and_exclude_dates(client):
     assert client.get(f"{BASE}/uploadedCalendars").json() == []
-    assert create(client, "main", "02-01-2027", "01-01-2028").status_code == 201
-    assert upload(client, "main", "date\n31-01-2027\n01-01-2027\n").json()["dates"] == [
-        "01-01-2027", "31-01-2027", "01-01-2028",
+    next_year = UPLOAD_YEAR + 1
+    assert create(client, "main", f"02-01-{UPLOAD_YEAR}", f"01-01-{next_year}").status_code == 201
+    assert upload(
+        client, "main", xlsx(f"{UPLOAD_YEAR}-01-31", f"{UPLOAD_YEAR}-01-01")
+    ).json()["dates"] == [
+        f"01-01-{UPLOAD_YEAR}", f"31-01-{UPLOAD_YEAR}", f"01-01-{next_year}",
     ]
-    assert upload(client, "exclude", "date\n31-01-2027\n02-01-2027\n").status_code == 201
+    assert upload(
+        client, "exclude", xlsx(f"{UPLOAD_YEAR}-01-31", f"{UPLOAD_YEAR}-01-02")
+    ).status_code == 201
     assert client.get(f"{BASE}/uploadedCalendars").json() == [
         {"name": "exclude", "migrated": False}, {"name": "main", "migrated": False},
     ]
@@ -119,15 +201,101 @@ def test_upload_replace_year_and_exclude_dates(client):
         "01-01-2027", "01-01-2028",
     ]
     assert client.get(dates_path, params={"excludeCalendar": "absent"}).status_code == 404
-    invalid_csv = ("date\n", "date,other\n", "date\n01-01-2028\n", "date\n01-01-2027\n01-01-2027")
-    for contents in invalid_csv:
+    yesterday = datetime.now(UTC).date() - timedelta(days=1)
+    past_date = yesterday.isoformat()
+    invalid_workbooks = (
+        xlsx(),
+        xlsx(f"{UPLOAD_YEAR}-01-01", header="date"),
+        xlsx(f"{UPLOAD_YEAR}-01-01", f"{UPLOAD_YEAR}-01-01"),
+        xlsx(f"01-01-{UPLOAD_YEAR}"),
+        xlsx(f"{UPLOAD_YEAR}-02-30"),
+        xlsx(past_date),
+        xlsx((f"{UPLOAD_YEAR}-01-01", "extra")),
+        xlsx(f"{UPLOAD_YEAR}-01-01", extra_sheet=True),
+    )
+    for contents in invalid_workbooks:
         assert upload(client, "main", contents).status_code == 400
-    assert upload(client, "main", "x" * 129).status_code == 413
-    unsupported_file = upload(client, "main", "date\n01-01-2027", media_type="application/json")
+    assert upload(
+        client, "main", xlsx(f"{UPLOAD_YEAR + 2}-01-01"), year=str(UPLOAD_YEAR + 2)
+    ).status_code == 400
+    assert upload(
+        client, "a" * 71, xlsx(f"{UPLOAD_YEAR}-01-01")
+    ).status_code == 400
+    assert upload(client, "main", b"x" * (5_242_880 + 1)).status_code == 413
+    unsupported_file = upload(
+        client, "main", xlsx(f"{UPLOAD_YEAR}-01-01"), media_type="application/json"
+    )
     assert unsupported_file.status_code == 415
-    assert upload(client, "main", "date\n01-01-2027", data_type="text/plain").status_code == 415
+    assert upload(
+        client, "main", xlsx(f"{UPLOAD_YEAR}-01-01"), filename="calendar.csv"
+    ).status_code == 415
+    assert upload(
+        client, "main", xlsx(f"{UPLOAD_YEAR}-01-01"), data_type="text/plain"
+    ).status_code == 415
     assert client.post(f"{BASE}/main/upload", json={}).status_code == 415
-    assert client.get(dates_path).json() == ["01-01-2027", "31-01-2027", "01-01-2028"]
+    assert client.get(dates_path).json() == [
+        f"01-01-{UPLOAD_YEAR}", f"31-01-{UPLOAD_YEAR}", f"01-01-{next_year}",
+    ]
+
+
+def test_verify_dates_returns_per_row_status_and_errors(client):
+    yesterday = datetime.now(UTC).date() - timedelta(days=1)
+    past_date = yesterday.isoformat()
+    response = client.post(
+        f"{BASE}/upload/verify",
+        files={
+            "data": (
+                "metadata.json",
+                f'{{"year":"{UPLOAD_YEAR}"}}',
+                "application/json",
+            ),
+            "file": (
+                "calendar.xlsx",
+                xlsx(
+                    f"{UPLOAD_YEAR}-01-01",
+                    past_date,
+                    f"{UPLOAD_YEAR}-Jan-01",
+                    f"01-01-{UPLOAD_YEAR}",
+                ),
+                XLSX_MEDIA_TYPE,
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["year"] == UPLOAD_YEAR
+    assert result["valid"] is False
+    assert result["items"][0] == {
+        "row": 2,
+        "value": f"{UPLOAD_YEAR}-01-01",
+        "date": f"{UPLOAD_YEAR}-01-01",
+        "valid": True,
+        "errors": [],
+    }
+    assert "Past dates are not allowed." in result["items"][1]["errors"]
+    assert "Dates must not contain letters." in result["items"][2]["errors"]
+    assert "Date must use the YYYY-MM-DD format." in result["items"][3]["errors"]
+
+
+def test_excel_export_includes_all_dates_as_iso_strings(client):
+    dates = [f"01-01-{UPLOAD_YEAR}", f"31-12-{UPLOAD_YEAR + 1}"]
+    assert create(client, "Exportable", *dates).status_code == 201
+
+    response = client.get(f"{BASE}/Exportable/export")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(XLSX_MEDIA_TYPE)
+    workbook = load_workbook(BytesIO(response.content), read_only=True, data_only=True)
+    try:
+        rows = list(workbook.active.iter_rows(values_only=True))
+    finally:
+        workbook.close()
+    assert rows == [
+        ("Calendar date",),
+        (f"{UPLOAD_YEAR}-01-01",),
+        (f"{UPLOAD_YEAR + 1}-12-31",),
+    ]
 
 
 def test_starts_without_auth_configuration_by_default(db_path, monkeypatch):
@@ -187,6 +355,30 @@ def test_jwt_signature_audience_issuer_expiry_and_editor_mapping(db_path, monkey
         ))
         assert written.status_code == 201
         assert written.json()["createdBy"] == "editor-user"
+        uploaded = authenticated.post(
+            f"{BASE}/allowed/upload",
+            files={
+                "data": (None, f'{{"year":"{UPLOAD_YEAR}"}}', "application/json"),
+                "file": (
+                    "calendar.xlsx",
+                    xlsx(f"{UPLOAD_YEAR}-01-01"),
+                    XLSX_MEDIA_TYPE,
+                ),
+            },
+            headers=headers(realm_access={"roles": ["calendar-write"]}),
+        )
+        assert uploaded.status_code == 201
+        amendment = authenticated.patch(
+            f"{BASE}/allowed/update",
+            json={"calendarName": "allowed", "status": "ACTIVE", "dates": ["02-01-2027"]},
+            headers=headers(realm_access={"roles": ["calendar-write"]}),
+        )
+        assert amendment.status_code == 403
+        lifecycle = authenticated.post(
+            f"{BASE}/allowed/deactivate",
+            headers=headers(realm_access={"roles": ["calendar-write"]}),
+        )
+        assert lifecycle.status_code == 403
 
 
 def test_opaque_token_introspection(db_path, monkeypatch):

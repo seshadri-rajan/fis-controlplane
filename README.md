@@ -20,8 +20,8 @@ control plane.
 
 ## What we are building
 
-Three deliverables, not one. They have different users, different lifecycles and different
-deployment targets.
+Three functional deliverables. Calendar and metadata APIs share a single backend application;
+the Airflow plugin has a separate deployment target.
 
 | # | Deliverable | What it does | Who runs it |
 |---|-------------|--------------|-------------|
@@ -39,9 +39,9 @@ this repo — see [Rules that are not negotiable](#rules-that-are-not-negotiable
 ```
 fidility/
 ├── apps/                          Deployable applications
-│   ├── calendar_service/          FastAPI. The calendar system of record.
-│   ├── control_plane/             FastAPI. DAG-run metadata ingestion + read API.
-│   └── web/                       React SPA. UI for both services.
+│   ├── calendar_service/          FastAPI. Single backend: calendars + demo run history.
+│   ├── control_plane/             Legacy metadata scaffold; not a running service.
+│   └── web/                       React SPA. Calendar and metadata UI.
 │
 ├── packages/                      Shared / distributable libraries
 │   ├── calendar_core/             Pure date-rule engine. No I/O, no framework.
@@ -72,7 +72,8 @@ fidility/
 
 ## Architecture: layers and dependency direction
 
-`calendar_service` and `control_plane` follow clean architecture.
+The shared `calendar_service` backend follows clean architecture. `control_plane` remains an
+unused scaffold; no separate server is needed.
 
 ```
       api/  ──────►  domain/  ◄──────  infra/
@@ -141,9 +142,8 @@ These exist because they are cheap now and very expensive later. Each links to i
 ```powershell
 # From the repository root
 py -3.14 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip pytest pytest-asyncio
-.\.venv\Scripts\python.exe -m pip install -e packages/calendar_core
-.\.venv\Scripts\python.exe -m pip install -e apps\calendar_service
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
 npm install --prefix apps/web
 ```
@@ -177,6 +177,9 @@ $env:CALENDAR_AUTH_ENABLED = "false" # local development only
 ```
 
 Interactive API docs are at <http://127.0.0.1:8000/docs>.
+The same process serves calendar APIs and the generated demo run-history API at
+`/v1/run-history` (latest rows) and `/v1/run-history/demo` (full feed). No port-8001 service is
+needed. Run-history demo endpoints are unauthenticated and must not be exposed in production.
 For deployment and OAuth configuration, see [the calendar service README](apps/calendar_service/README.md).
 Run `npm run dev --prefix apps/web` in a second terminal and open <http://localhost:5173>.
 The web app uses `/v1`; paste an OAuth access token in the header when backend auth is enabled.
@@ -220,7 +223,7 @@ See [TRACKER.md](TRACKER.md) for the full breakdown of done, pending and blocked
 |---|---|
 | `calendar_core` | Rule engine implemented, 47 tests passing. Extended rule set is **provisional** (O-28). |
 | `calendar_service` | Preview, calendar CRUD, materialisation, four-eyes gate, local authentication with RBAC, audit trail, annual rollover and the date-cliff alert. 56 tests. |
-| `control_plane` | Scaffolding only. Blocked on the O-13 ingestion decision. |
+| `control_plane` | Legacy scaffold only. Demo run-history APIs run in `calendar_service`; live ingestion remains blocked on the O-13 delivery decision. |
 | `web` | Preview, login, and calendar list/detail with dates and audit history. Editors blocked on S-13. |
 | `airflow_calendar_plugin` | Scaffolding only. Blocked on O-19. |
 

@@ -32,7 +32,7 @@ export default function AmendCalendarPage() {
         {back}
         <h1 className="text-xl font-semibold">Amend {name}</h1>
         <p className="max-w-3xl text-sm text-slate-600">
-          Click a date to include or exclude it, or add dates from a CSV file. Dates before today are
+          Click a date to include or exclude it, or add dates from an Excel workbook. Dates before today are
           history and can’t be changed. Nothing is saved until you click Save changes.
         </p>
       </div>

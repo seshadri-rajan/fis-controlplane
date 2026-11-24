@@ -1,11 +1,59 @@
-import type { CalendarStatusFields, RunRecord } from "./proposed";
+import { isActive, type CalendarStatusFields, type RunRecord } from "./proposed";
 import type { components as specComponents } from "./spec";
 
 type SpecUser = specComponents["schemas"]["User"];
 type SpecLoginRequest = specComponents["schemas"]["LoginRequest"];
-export type SpecCalendar = specComponents["schemas"]["Calendar"] & CalendarStatusFields;
-export type SpecCalendarCreate = specComponents["schemas"]["CalendarCreateRequest"];
-export type SpecCalendarWrite = specComponents["schemas"]["CalendarWriteRequest"];
+export type SpecCalendar = CalendarStatusFields & {
+  calendarName?: string;
+  dates?: string[];
+  migrated?: boolean;
+  uploaded?: boolean;
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  holidayCalendar?: string;
+};
+export type SpecCalendarCreate = { calendarName: string; dates: string[] };
+export type SpecCalendarWrite = {
+  calendarName: string;
+  dates: string[];
+  status: "ACTIVE" | "INACTIVE";
+};
+export type UploadVerificationItem = {
+  row: number;
+  value: string | null;
+  date: string | null;
+  valid: boolean;
+  errors: string[];
+};
+export type UploadVerification = {
+  year: number;
+  valid: boolean;
+  items: UploadVerificationItem[];
+  errors: string[];
+};
+type ApiCalendar = Omit<SpecCalendar, "dates"> & { dates?: string[] };
+type ApiCalendarPage = {
+  calendars: ApiCalendar[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+};
+
+function toUiDate(value: string): string {
+  const match = /^(\d{2})-(\d{2})-(\d{4})$/.exec(value);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+}
+
+function toApiDate(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : value;
+}
+
+function toUiCalendar(calendar: ApiCalendar): SpecCalendar {
+  return { ...calendar, dates: calendar.dates?.map(toUiDate) };
+}
 
 /**
  * UI-owned session user. Adapted from the new backend's `User` so components do not
@@ -68,8 +116,11 @@ async function describeFailure(response: Response): Promise<string> {
     if (Array.isArray(body?.detail)) {
       return body.detail.map((d: { msg?: string }) => d.msg ?? "invalid input").join("; ");
     }
-    return response.json();
+  } catch {
+    // Fall through to the generic message below.
   }
+  return `Request failed (${response.status})`;
+}
 
 const json = (body: unknown): RequestInit => ({
   method: "POST",
@@ -106,10 +157,8 @@ async function listAllCalendars(filters: Record<string, string> = {}): Promise<S
   do {
     // `offset` is the page number in this spec (API-015).
     const query = new URLSearchParams({ ...filters, limit: "100", offset: String(page) });
-    const result = await request<specComponents["schemas"]["CalendarPage"]>(
-      `/v1/calendars?${query}`,
-    );
-    calendars.push(...result.calendars);
+    const result = await request<ApiCalendarPage>(`/v1/calendars?${query}`);
+    calendars.push(...result.calendars.map(toUiCalendar));
     totalPages = result.totalPages;
     page += 1;
   } while (page <= totalPages);
@@ -134,27 +183,23 @@ export async function listUploadedCalendars(): Promise<SpecCalendar[]> {
 }
 
 export function getCalendarDates(calendarName: string): Promise<string[]> {
-  return request<string[]>(`/v1/calendars/${encodeURIComponent(calendarName)}/dates`);
+  return request<string[]>(`/v1/calendars/${encodeURIComponent(calendarName)}/dates`).then(
+    (dates) => dates.map(toUiDate),
+  );
 }
 
 export function getCalendar(calendarName: string): Promise<SpecCalendar> {
-  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}`);
+  return request<ApiCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}`).then(
+    toUiCalendar,
+  );
 }
 
-/**
- * The spec's update replaces every writable field (API-028), so an edit of the dates alone must
- * send the calendar's other fields back unchanged or they are wiped.
- */
+/** Builds the backend's required amendment payload from UI dates and the current calendar. */
 export function toWriteRequest(calendar: SpecCalendar, dates: string[]): SpecCalendarWrite {
   return {
-    dates,
-    holidayCalendar: calendar.holidayCalendar ?? "",
-    ...(calendar.dateRuleType !== undefined && { dateRuleType: calendar.dateRuleType }),
-    ...(calendar.dayOfWeek !== undefined && { dayOfWeek: calendar.dayOfWeek }),
-    ...(calendar.runDate !== undefined && { runDate: calendar.runDate }),
-    ...(calendar.runDay !== undefined && { runDay: calendar.runDay }),
-    ...(calendar.holidayRun !== undefined && { holidayRun: calendar.holidayRun }),
-    ...(calendar.holidayOffset !== undefined && { holidayOffset: calendar.holidayOffset }),
+    calendarName: calendar.calendarName ?? "",
+    dates: dates.map(toApiDate),
+    status: isActive(calendar) ? "ACTIVE" : "INACTIVE",
   };
 }
 
@@ -162,33 +207,70 @@ export function updateCalendar(
   calendarName: string,
   body: SpecCalendarWrite,
 ): Promise<SpecCalendar> {
-  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/update`, {
+  return request<ApiCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/update`, {
     method: "PATCH",
     body: JSON.stringify(body),
-  });
+  }).then(toUiCalendar);
 }
 
-/** Proposed endpoints, ADMIN only (API-026). */
+/** ADMIN-only lifecycle endpoints. */
 export function setCalendarActive(calendarName: string, active: boolean): Promise<SpecCalendar> {
   const action = active ? "activate" : "deactivate";
-  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/${action}`, {
-    method: "POST",
-  });
+  return request<ApiCalendar>(
+    `/v1/calendars/${encodeURIComponent(calendarName)}/${action}`,
+    { method: "POST" },
+  ).then(toUiCalendar);
 }
 
 export function createSpecCalendar(body: SpecCalendarCreate): Promise<SpecCalendar> {
-  return request<SpecCalendar>("/v1/calendars", json(body));
+  return request<ApiCalendar>("/v1/calendars", json(body)).then(toUiCalendar);
 }
 
-/** Atomically replaces the calendar's dates from a UTF-8 CSV with a single `date` column. */
-export function uploadCalendarDates(calendarName: string, file: File): Promise<SpecCalendar> {
+function calendarUploadForm(file: File, year: number): FormData {
   const form = new FormData();
-  // Some OSes label .csv files as application/vnd.ms-excel; the spec requires text/csv.
-  form.append("file", new File([file], file.name, { type: "text/csv" }));
-  return request<SpecCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/upload`, {
+  form.append("data", new Blob([JSON.stringify({ year: String(year) })], {
+    type: "application/json",
+  }));
+  form.append("file", file);
+  return form;
+}
+
+export function verifyDates(
+  file: File,
+  year: number,
+  amend: boolean,
+): Promise<UploadVerification> {
+  const query = amend ? "?amend=true" : "";
+  return request<UploadVerification>("/v1/calendars/upload/verify" + query, {
     method: "POST",
-    body: form,
+    body: calendarUploadForm(file, year),
   });
+}
+
+/** Atomically replaces a calendar year from a single-column Excel workbook. */
+export function uploadCalendarDates(
+  calendarName: string,
+  file: File,
+  year: number,
+  createOnly = false,
+): Promise<SpecCalendar> {
+  const query = createOnly ? "?createOnly=true" : "";
+  return request<ApiCalendar>(`/v1/calendars/${encodeURIComponent(calendarName)}/upload${query}`, {
+    method: "POST",
+    body: calendarUploadForm(file, year),
+  }).then(toUiCalendar);
+}
+
+export async function downloadCalendarExcel(calendarName: string): Promise<void> {
+  const response = await send(
+    `/v1/calendars/${encodeURIComponent(calendarName)}/export`,
+  );
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `calendar-${calendarName}.xlsx`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 // --- run history: proposed endpoint, not in the spec (API-029) ---

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router";
 
+import { useApiMode } from "./features/api-mode/ApiModeProvider";
 import { useAuth } from "./features/auth/AuthProvider";
 import LoginPage from "./features/auth/LoginPage";
 import CalendarSection from "./features/calendars/CalendarSection";
@@ -21,39 +22,16 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return user ? <>{children}</> : <LoginPage />;
 }
 
+function BackendFeatureUnavailable({ feature }: { feature: string }) {
+  return (
+    <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+      {feature} isn’t available from the local Calendar Service backend.
+    </div>
+  );
+}
+
 export default function App() {
-  const queryClient = useQueryClient();
-  const [session, setSession] = useState<{ token?: string; revision: number }>({ revision: 0 });
-  const [error, setError] = useState("");
-  const [checking, setChecking] = useState(false);
-  const api = useMemo(() => createCalendarApi(session.token), [session.token]);
-
-  function switchToken(token?: string) {
-    queryClient.clear();
-    setSession((current) => ({ token, revision: current.revision + 1 }));
-    setError("");
-  }
-
-  async function useToken(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const token = String(new FormData(form).get("accessToken")).trim();
-    if (!token || /\s/.test(token)) {
-      setError("Enter the access token without the Bearer prefix.");
-      return;
-    }
-    setChecking(true);
-    setError("");
-    try {
-      await createCalendarApi(token).list({ limit: 1 });
-      form.reset();
-      switchToken(token);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not verify the access token.");
-    } finally {
-      setChecking(false);
-    }
-  }
+  const { isLocalBackend } = useApiMode();
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -63,7 +41,16 @@ export default function App() {
         <RequireAuth>
           <Routes>
             <Route path={HOME_PATH} element={<HomePage />} />
-            <Route path={METADATA_PATH} element={<MetadataPage />} />
+            <Route
+              path={METADATA_PATH}
+              element={
+                isLocalBackend ? (
+                  <BackendFeatureUnavailable feature="DAG and task metadata" />
+                ) : (
+                  <MetadataPage />
+                )
+              }
+            />
             <Route path={`${CALENDAR_PATH}/*`} element={<CalendarSection />} />
             {/* Pre-prefix URLs, and the older /preview that the screenshots point at. */}
             <Route path="/calendars" element={<Navigate to={CALENDARS_PATH} replace />} />

@@ -1,5 +1,8 @@
 import { NavLink, useNavigate } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
+import { useApiMode, type ApiMode } from "../api-mode/ApiModeProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { CALENDAR_PATH, HOME_PATH, METADATA_PATH } from "./paths";
 
@@ -16,6 +19,7 @@ const itemClass = ({ isActive }: { isActive: boolean }) =>
 
 function UserBadge() {
   const { user, signOut } = useAuth();
+  const { isLocalBackend } = useApiMode();
   const navigate = useNavigate();
   if (!user) return null;
 
@@ -30,13 +34,62 @@ function UserBadge() {
         {user.user_name}
         <span className="ml-1 text-slate-400">{user.roles.join(", ")}</span>
       </span>
-      <button
-        type="button"
-        onClick={handleSignOut}
-        className="rounded-lg border border-white/25 px-2.5 py-1 text-slate-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      {!isLocalBackend && (
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="rounded-lg border border-white/25 px-2.5 py-1 text-slate-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          Sign out
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ApiModeSelector() {
+  const { mode, setMode, isLocalBackend } = useApiMode();
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const [isChanging, setIsChanging] = useState(false);
+
+  const changeMode = async (nextMode: ApiMode) => {
+    setError(null);
+    setIsChanging(true);
+    try {
+      await setMode(nextMode);
+      queryClient.clear();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Could not change API mode.");
+    } finally {
+      setIsChanging(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor="api-mode" className="text-xs font-medium text-slate-200">
+        API mode
+      </label>
+      <select
+        id="api-mode"
+        value={mode}
+        disabled={isChanging}
+        onChange={(event) => {
+          const value = event.target.value;
+          if (value === "mock" || value === "backend") void changeMode(value);
+        }}
+        className="rounded-md border border-white/25 bg-slate-800 px-2 py-1.5 text-xs text-white disabled:opacity-60"
       >
-        Sign out
-      </button>
+        <option value="mock">Mock</option>
+        <option value="backend">Local backend (auth off)</option>
+      </select>
+      {isLocalBackend && <span className="sr-only">Authentication is disabled</span>}
+      {error && (
+        <span role="alert" className="text-xs text-rose-200">
+          {error}
+        </span>
+      )}
     </div>
   );
 }
@@ -50,31 +103,19 @@ export default function Navbar() {
         <span className="text-xl font-bold text-white">
           Control <span className="text-indigo-400">Plane</span>
         </span>
-         {user && (
-      <>
-        {/* Navigation beside Control Plane */}
-        <nav
-          aria-label="Main"
-          className="flex flex-wrap items-center gap-1.5"
-        >
-          {ITEMS.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={itemClass}
-            >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* User badge stays on the right */}
-        <div className="ml-auto">
-          <UserBadge />
+        {user && (
+          <nav aria-label="Main" className="flex flex-wrap items-center gap-1.5">
+            {ITEMS.map(({ to, label, end }) => (
+              <NavLink key={to} to={to} end={end} className={itemClass}>
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+        )}
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          {import.meta.env.DEV && <ApiModeSelector />}
+          {user && <UserBadge />}
         </div>
-      </>
-    )}
       </div>
     </header>
   );

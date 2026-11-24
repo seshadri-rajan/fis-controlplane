@@ -20,11 +20,11 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | [API-004](#api-004-date-format-contradicts-itself) | High | Open | `DD-MM-YYYY` vs `YYYY-MM-DD` | `YYYY-MM-DD` |
 | [API-005](#api-005-holidaycalendar-is-required-but-has-no-source) | High | Open | `holidayCalendar` required, no list/default | Uploads send `""`; the holiday dropdown is unused since rule-based create was removed (2026-11-06) |
 | [API-006](#api-006-no-way-to-list-or-create-autosys-migrated-calendars) | High | Open | Autosys migration flow undefined | `GET /calendars?migrated=true` |
-| [API-007](#api-007-new-calendar-from-a-file-takes-two-non-atomic-calls) | Medium | Open | Create-from-file is two calls | `POST` with `dates: []`, then upload |
-| [API-008](#api-008-upload-accepts-csv-only) | Medium | Open | No Excel upload | CSV only, UI rejects `.xlsx` |
+| [API-007](#api-007-new-calendar-from-a-file-takes-two-non-atomic-calls) | Medium | Resolved | Create-from-file is two calls | One create-only multipart upload |
+| [API-008](#api-008-upload-flow-has-requirement-gaps) | Medium | Open | Existing uploaded calendars are also upload targets | UI supports new, migrated, and already-uploaded calendars |
 | [API-009](#api-009-rule-fields-are-underspecified-and-adjustment-action-is-missing) | Blocker | On hold | Rule composition + adjustment action | Unused: rule-based create was removed (2026-11-06) |
 | [API-010](#api-010-no-way-to-preview-or-generate-dates-from-rules) | Blocker | On hold | No preview / date generation | Unused: rule-based create was removed (2026-11-06) |
-| [API-011](#api-011-approval-workflow-is-absent) | Blocker | Open | Approval (four-eyes) workflow absent | Not built |
+| [API-011](#api-011-four-eyes-approval-scope-conflicts-across-sources) | Blocker | Open | Four-eyes approval scope conflicts across sources | No approval flow for upload/amend/activate/deactivate; other mutation scope unresolved |
 | [API-012](#api-012-role-permissions-are-undefined-for-approver-and-uploader) | High | Open | APPROVER / UPLOADER permissions | UPLOADER and APPROVER are read-only |
 | [API-013](#api-013-who-may-delete-a-calendar-contradicts-itself) | Medium | Open | Delete permission contradiction | Not built |
 | [API-014](#api-014-business-unit-and-application-are-missing) | Medium | Open | No BU / Application | Not built |
@@ -38,14 +38,16 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 | [API-022](#api-022-calendar-has-no-description-and-no-way-to-rename) | Low | Open | No description field | Field removed from the form |
 | [API-023](#api-023-upload-replaces-all-dates-so-a-calendar-cannot-be-built-up-one-year-at-a-time) | High | Open | Upload replaces all dates | UI merges other years client-side (to confirm with team) |
 | [API-024](#api-024-no-way-to-list-calendars-created-by-upload-and-the-uploaded-flag-is-ambiguous) | Medium | Open | No `uploaded` filter; flag ambiguous | Filtered on the client |
-| [API-025](#api-025-no-change-history-or-updated-by-for-a-calendar) | Medium | Open | No change history / `updatedBy` | Audit table dropped |
-| [API-026](#api-026-calendars-cannot-be-activated-or-deactivated) | High | Open | No calendar active/inactive status | Proposed `active` field + activate/deactivate (ADMIN only), mocked |
+| [API-025](#api-025-backend-audit-is-internal-no-ui-history-by-design) | Low | Resolved | No user-facing audit history | Actions logged server-side; no audit view |
+| [API-026](#api-026-calendar-lifecycle-and-inactive-upload-enforcement) | High | Open | Inactive upload enforcement and lifecycle semantics | `status` + ADMIN-only lifecycle endpoints implemented; upload enforcement pending |
 | [API-027](#api-027-dates-before-today-must-be-read-only-but-nothing-enforces-it) | High | Open | Past dates must be read-only | Locked in the UI; mock enforces; browser-local "today" |
 | [API-028](#api-028-update-is-replace-all-and-its-contract-contradicts-itself) | Medium | Open | `update` is replace-all, `calendarName` contradiction | Read-modify-write with every field echoed |
-| [API-029](#api-029-no-run-history-api-and-the-sample-files-are-not-valid-json) | High | Open | No run-history API; sample files aren't valid JSON | Proposed `GET /v1/run-history` (mocked) |
-| [API-030](#api-030-run-identity-duplicates-and-latest-are-undefined) | High | Open | No run id; exact duplicates; "latest" undefined | Latest by start time, computed in the browser |
+| [API-029](#api-029-no-live-run-history-contract-and-sample-files-are-invalid-json) | High | Open | No live run-history contract; sample files aren't valid JSON | Local demo API serves generated fixture data |
+| [API-030](#api-030-run-identity-and-live-feed-semantics-remain-undefined) | High | Open | No run id or live-feed identity semantics | Demo latest selection by source/type/DAG/task |
 | [API-031](#api-031-run-states-confirm-the-airflow-list-is-what-the-feed-sends) | Low | Open | Confirm the Airflow state list is what the feed sends | Airflow names; unknown states shown as "Other" with the feed's text |
 | [API-032](#api-032-nothing-tells-a-stale-dashboard-from-a-quiet-one) | Medium | Open | No freshness signal per business unit | "Updated" time + a non-authoritative note |
+| [API-033](#api-033-calendar-yaml-contracts-have-drifted) | High | Open | Runtime and frontend calendar YAML contracts differ | Backend/root YAML vs frontend `req-details` YAML |
+| [API-034](#api-034-execution-report-csv-contract-is-undefined) | High | Open | Execution-report CSV contract is undefined | Calendar Excel export exists; report fields/trigger unknown |
 
 ---
 
@@ -120,17 +122,19 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **UI assumption:** Migrated calendars already exist; Upload dates has one combined "Calendar" dropdown whose "Migrated calendars" group is filled from `GET /v1/calendars?migrated=true`.
 
 ### API-007: New calendar from a file takes two non-atomic calls
-- **Severity / status:** Medium · Open · raised 2026-11-05
+- **Severity / status:** Medium · Resolved · raised 2026-11-05
 - **Spec:** `POST /calendars` takes JSON with required `dates`; `POST /calendars/{name}/upload` needs an existing calendar.
 - **Impact:** Creating from a file needs create then upload. If the second call fails, an empty calendar is left behind. It is also unclear whether `dates: []` is valid on create.
 - **Ask:** Confirm `dates: []` is accepted, or offer a single multipart create-from-file operation.
-- **UI assumption:** `POST` with `dates: []`, then upload. A failed upload keeps the created name so a retry only re-uploads.
+- **Resolution:** `POST /calendars/{name}/upload?createOnly=true` now validates and creates a new calendar in one request, returning 409 for a duplicate name. The UI uses this path for create-from-file; the mock handler follows the same behavior.
 
-### API-008: Upload accepts CSV only
-- **Severity / status:** Medium · Open · raised 2026-11-05
-- **Spec:** `upload` takes UTF-8 `text/csv`, single `date` column, max 5 MiB. Users expect "CSV/Excel".
-- **Ask:** Is `.xlsx` required? If so, should the server parse it, or is client-side conversion acceptable?
-- **UI assumption:** CSV only; `.xlsx` is rejected with an explanatory message. A "Download sample CSV" link gives users a valid file for the selected year to edit. The screen also warns that Excel rewrites dates in the regional format unless the column is formatted `yyyy-mm-dd`.
+### API-008: Upload flow has requirement gaps
+- **Severity / status:** Medium · Open · raised 2026-11-05; requirement confirmed in pasted text section 8.2.2
+- **Requirement / decision:** The requirements document specifies `DD-MM-YYYY` for upload workbooks, while the later explicit rule requires `YYYY-MM-DD` for all Excel exports. To keep downloaded workbooks consistent, the upload template and its corresponding upload input now use `YYYY-MM-DD`.
+- **Runtime behavior:** The UI calls `POST /calendars/upload/verify` before saving. The backend returns each row's original value, normalized date when valid, `valid` flag, and errors. The UI displays those results without parsing the workbook. The final upload endpoint repeats validation, accepts `.xlsx` only, and rejects past, malformed, duplicate, or out-of-horizon dates. Backend upload-created names use the same 70-character alphanumeric rule as calendar creation. The upload template and all-dates Excel export use `YYYY-MM-DD`.
+- **YAML:** Both YAML copies document `verifyDates`, `YYYY-MM-DD` workbook uploads, and ISO-formatted all-dates export.
+- **Remaining gap:** The UI also offers already-uploaded calendars as targets under “Upload dates,” beyond the new and migrated options named by the requirement.
+- **Next step:** Confirm whether already-uploaded calendars should remain a separate upload target or be managed only through Amend.
 
 ### API-009: Rule fields are underspecified and adjustment action is missing
 - **Severity / status:** Blocker · Open · raised 2026-11-04
@@ -178,19 +182,20 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 
 ## Authorization
 
-### API-011: Approval workflow is absent
+### API-011: Four-eyes approval scope conflicts across sources
 - **Severity / status:** Blocker · Open · raised 2026-11-04
-- **Requirements:** `RECORD.md` D-10: four-eyes gate behind `approval_required`, with a `calendar_change_request` table.
-- **Spec:** Role `APPROVER` exists, but there is no approval queue, detail, approve or reject operation. Mutations return 201/200, with no 202 "pending" outcome. (The previous backend returned 202 plus a change request.)
-- **Ask:** Provide the endpoints and contracts: list pending, change detail/diff, approve, reject (with reason). Say how create, update, upload and delete signal "pending approval", and how the UI learns whether the gate is on.
-- **UI assumption:** Not built. Saves are treated as applied immediately. Amending a calendar's dates and changing its status (API-026) are the changes most likely to need the gate.
+- **Requirements:** Pasted requirement sections 8.2.2–8.2.4 require upload, amend, activate, and deactivate. Section 8.5 says the **four-eyes operation for those actions** is out of scope. This excludes approval, not the underlying calendar actions.
+- **Conflicting internal decision:** `RECORD.md` D-10 says a four-eyes gate should exist behind `approval_required` for every mutation path.
+- **Spec:** There is no approval queue, detail/diff, approve, or reject operation. Mutations are applied directly.
+- **Ask:** Confirm whether four-eyes applies to calendar create/delete or other entities. Do not treat approval for upload/amend/activate/deactivate as required by the pasted requirement.
+- **UI assumption:** Those four actions are direct operations with no approval UI; their audit logging remains required by section 8.2.2. Scope for any other approval workflow remains unresolved.
 
 ### API-012: Role permissions are undefined for APPROVER and UPLOADER
 - **Severity / status:** High · Open · raised 2026-11-04
 - **Spec:** `UserRole` documents only ADMIN, EDITOR, VIEWER. `UserRole` is an array, so a user can hold several roles, with no rule for combining them. Calendar create/update/upload say "EDITOR or ADMIN", so it is unclear whether UPLOADER may upload.
 - **Requirements:** `RECORD.md` lists different roles (Viewer, Admin, Create, Approver).
 - **Ask:** State the exact permissions of APPROVER and UPLOADER. Are multiple roles a union? Can one person both edit and approve the same change?
-- **UI assumption:** `has(role)` passes for the exact role or ADMIN. Upload, create and amend need EDITOR or ADMIN. Activating and deactivating a calendar need ADMIN (decided 2026-11-11, see API-026). UPLOADER and APPROVER get read-only screens.
+- **UI assumption:** `has(role)` passes for the exact role or ADMIN. Upload and create need EDITOR or ADMIN. Amendment, activation, and deactivation of uploaded/migrated calendars need ADMIN. UPLOADER and APPROVER get read-only screens.
 
 ### API-013: Who may delete a calendar contradicts itself
 - **Severity / status:** Medium · Open · raised 2026-11-05
@@ -247,6 +252,7 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Impact:** A calendar created from a rule holds only the year the user previews. A run shifted across a year boundary (for example Jan 1 moved back one day) is dropped.
 - **Ask:** Is a calendar expected to cover several years at creation? Who extends it as time passes (a scheduled job on the backend, or the user re-saving)? Should preview and create accept a year range?
 - **UI assumption:** Rules flow: one year, chosen by the user (2000–2100), is generated and saved; the screen says so. Upload flow (review decision 2026-11-05): a "Calendar year" dropdown offers the current year and the next. The file may span years (for example 1 Apr 2026 to 1 Mar 2027), but only dates in the selected year are shown and saved. The UI filters them and uploads a new CSV containing just those dates.
+- **Upload enforcement:** The UI and backend now both restrict new uploads to the current or next calendar year and require every API upload date to match its metadata year. The broader question of how calendars are extended beyond that window remains open.
 
 ### API-023: Upload replaces all dates, so a calendar cannot be built up one year at a time
 - **Severity / status:** High · Open · raised 2026-11-05
@@ -269,28 +275,23 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
 - **Ask:** (1) Add an `uploaded` filter to `listCalendars`. (2) Define when `uploaded` becomes true, and whether it stays false for a calendar created by rules and later re-uploaded. (3) Consider a `createdVia` / `source` field (`RULES` or `UPLOAD`) instead of two booleans.
 - **UI assumption:** "Existing calendar" = `migrated=false` and `uploaded === true`, filtered on the client (`listUploadedCalendars` in `client.ts`).
 
-### API-025: No change history or "updated by" for a calendar
-- **Severity / status:** Medium · Open · raised 2026-11-05
-- **Spec:** `Calendar` has `createdBy`, `createdAt` and `updatedAt`, but no `updatedBy` and no history endpoint. The previous backend had `GET /calendars/{key}/history` (who changed what, and when), and the previous Calendars screen showed it as an "Audit history" table.
-- **Requirements:** `RECORD.md` section 11 (four-eyes) relies on an audit trail of each change and who made it.
-- **Ask:** Add `updatedBy` to `Calendar`, and a history endpoint (action, user, time, optionally the changed fields). Say whether approvals (API-011) appear in it.
-- **UI assumption:** The audit-history table was dropped from the Calendars page. The detail shows "Created: user · date" and "Last updated: date" only. Amending and activating make this gap matter more: there is no record of who changed a calendar's dates or status.
+### API-025: Backend audit is internal; no UI history by design
+- **Severity / status:** Low · Resolved · raised 2026-11-05; clarified 2026-11-24
+- **Requirement:** Pasted requirement section 8.2.2 says calendar actions are logged in the backend for audit purposes and are not visible in the UI.
+- **Backend:** The audit log records the calendar resource, action, actor, and time for create, upload, amendment, activation, and deactivation. Tests verify the upload, amendment, and lifecycle action records.
+- **Spec:** The API documents backend audit logging and exposes no audit-history operation. `updatedBy` and a user-facing history endpoint are not required.
+- **UI:** No audit history or audit details are displayed. This is intentional and matches the requirement.
 
-### API-026: Calendars cannot be activated or deactivated
+### API-026: Calendar lifecycle and inactive upload enforcement
 - **Severity / status:** High · Open · raised 2026-11-11
 - **Requirement (product, 2026-11-11):** An admin can deactivate a calendar and activate it again. An inactive calendar still appears in the Calendars list, but its dates cannot be amended or uploaded to until it is activated.
-- **Spec:** `Calendar` has no status field, and `CalendarWriteRequest` forbids extra properties, so a status can't ride on `update` either. Only users have `active`. (The previous backend had an `include_inactive` list parameter, so the idea existed there.)
-- **Proposed contract (not in the spec; contracts in `apps/web/src/lib/api/proposed.ts`):**
-  - `Calendar.active` (boolean, read-only; absent means active).
-  - `POST /v1/calendars/{calendar_name}/activate` and `.../deactivate`, ADMIN only, answering 200 with the `Calendar`. Repeating either is harmless.
-  - While inactive, `update` and `upload` answer 409 `CONFLICT`. Reads, the dates list and the list endpoint keep working.
-  - An `active` filter on `listCalendars`.
+- **Spec / implementation:** `Calendar.status` and ADMIN-only `activate`/`deactivate` endpoints are now documented and implemented. Amendment and lifecycle operations reject calendars that are neither uploaded nor migrated. The upload endpoint's inactive-calendar enforcement is unchanged and remains unimplemented.
+- **Implemented behavior:** Status changes are audited as `ACTIVATE` or `DEACTIVATE`; amendments require ADMIN and are audited as `UPDATE`. The UI displays inactive status and hides lifecycle actions from non-admins.
 - **Ask:**
-  1. Confirm the contract, or give the real one.
-  2. What does inactive mean for scheduling: do DAGs that reference the calendar fail, skip, or keep running on the stored dates? (`RECORD.md` warns a calendar with no future dates silently stops scheduling; an inactive one must not be a silent surprise.)
-  3. Is activating also ADMIN only? (The UI assumes yes: both actions are ADMIN only.)
-  4. Does a status change go through the approval gate (API-011), and does it appear in the history (API-025)?
-  5. Can an inactive calendar be deleted?
+  1. What does inactive mean for scheduling: do DAGs that reference the calendar fail, skip, or keep running on the stored dates? (`RECORD.md` warns a calendar with no future dates silently stops scheduling; an inactive one must not be a silent surprise.)
+  2. Should upload to an inactive calendar be rejected, and should the requirement be enforced server-side?
+  3. **Resolved:** Section 8.5 excludes four-eyes approval for upload/amend/activate/deactivate. Status changes are backend-audited; audit history is not shown in the UI (API-025).
+  4. Can an inactive calendar be deleted?
 - **UI assumption:** Calendars list: an "Inactive" badge and filter chip, Amend disabled, and Activate/Deactivate (ADMIN only, with a confirmation) in the detail. Upload dates leaves inactive calendars out of its dropdown and says how many were left out. Mocked in `apps/web/src/lib/api/mocks/handlers.ts`.
 
 ### API-027: Dates before today must be read-only, but nothing enforces it
@@ -314,31 +315,30 @@ Requirement references (`RECORD.md`, v2 requirements) point at this repo.
   - There is no version or ETag, so two people amending the same calendar overwrite each other without a warning (see API-023).
   - It is unclear whether `uploaded` or `migrated` change after an update.
 - **Ask:** Make `calendarName` consistent (allowed and checked, or dropped from the description). Allow `holidayCalendar` to be empty or omitted. Add optimistic concurrency (`If-Match` with an ETag, or a `version` field, answering 412 or 409). Say what an update does to `uploaded`.
-- **UI assumption:** Amend, and Upload dates onto an existing calendar, read the calendar fresh, rebuild its dates (keeping the past and the other years), and send it back through `update` with every other field copied (`toWriteRequest` in `client.ts`). `calendarName` is not sent. Create a new calendar still uses create plus upload.
+- **UI assumption:** Amend and Upload dates onto an existing calendar read the calendar fresh, rebuild its dates (keeping the past and the other years), and send `calendarName`, the dates, and the unchanged active status through `update` (`toWriteRequest` in `client.ts`). New calendar creation uses create plus upload. The browser translates dates between its ISO display form and the API's `DD-MM-YYYY` wire format.
 
 ---
 
 ## Run history (home dashboard)
 
-The home page shows the latest run of every DAG and task. It reads `req-details/dag-history/run_history.json` (one row per DAG or task run) and, in future, `dag_info.json` (a DAG's tasks, upstream and downstream, and metadata). Neither has an API yet.
+The home page shows the latest run of every DAG and task. The supplied `run_history.json` is invalid JSON and is not used by the app. A local demo API now generates run-history rows; a production feed and `dag_info.json` API remain undefined.
 
-### API-029: No run-history API, and the sample files are not valid JSON
+### API-029: No live run-history contract, and sample files are invalid JSON
 - **Severity / status:** High · Open · raised 2026-11-11
 - **Source:** `run_history.json` and `dag_info.json`, plus the annotated screenshot (`source` = business unit, `type` = DAG or Task, `dag_id` mandatory, `task_id` = task name).
-- **Spec:** `CalendarManagementSpec.yml` is calendar-only, and `apps/control_plane` has only a README (its `api/ui` read path is empty). There is no run-history endpoint to build against.
+- **Spec:** `CalendarManagementSpec.yml` is calendar-only. There is still no production run-history endpoint or live data source.
 - **Sample files:** both are invalid JSON, so nothing can parse them as delivered.
   - A comma is missing after every `"source": "FFIO"` / `"AM"` line.
   - In `dag_info.json`, `"upstream": [ "source": "AM" "dag_id": null, … ]` puts object members directly inside an array, with no braces.
   - `source` appears at several levels of `dag_info.json` (DAG, task, downstream, upstream) with no stated meaning at each.
-- **Proposed contract (not in the spec; `RunRecord` in `apps/web/src/lib/api/proposed.ts`):** `GET /v1/run-history` returns an array of rows exactly as in `run_history.json`: `source`, `type`, `state`, `dag_id`, `task_id`, `start_date`, `end_date`, `elapsed_time`, `business_date`. Readable by every authenticated role. Mocked.
+- **Local demo API (not a production contract):** `GET /v1/run-history` returns the latest generated demo row per source/type/DAG/task. `GET /v1/run-history/demo` returns all generated demo rows. Both return `source`, `type`, `state`, `dag_id`, `task_id`, `start_date`, `end_date`, `elapsed_time`, and `business_date`; no live ingestion, persistence, or authentication is implemented.
 - **Ask:**
-  1. Give the real endpoint and contract (an OpenAPI schema would settle the JSON problems), and fix the sample files.
-  2. Can the server return only the latest run per DAG and per task? Otherwise the browser downloads the whole history (30-day retention, `RECORD.md` O-17, times runs a day, times tasks) just to show one row each.
-  3. Pagination and filters: at least `source`, `dag_id` and a `since` time.
-  4. Is `dag_info.json` served by the same API? Its `slo`, `category`, `severity`, `critical_path`, `support_group` and `application_id` are all null in the sample.
-- **UI assumption:** The page fetches the whole feed and works out the latest runs in the browser (`apps/web/src/features/home/runModel.ts`). `dag_info.json` is not used yet.
+  1. Define the production data source, endpoint/OpenAPI contract, and authentication; fix the sample files.
+  2. Define any required filters or pagination for the live feed.
+  3. Is `dag_info.json` served by the same API? Its `slo`, `category`, `severity`, `critical_path`, `support_group` and `application_id` are all null in the sample.
+- **UI assumption:** Mock mode uses generated mock rows. Local Backend mode gets generated demo rows from the single `calendar_service.main:app` backend on port 8000, which also serves calendar APIs; the page still derives its dashboard view from the response. `dag_info.json` is not used yet.
 
-### API-030: Run identity, duplicates and "latest" are undefined
+### API-030: Run identity and live-feed semantics remain undefined
 - **Severity / status:** High · Open · raised 2026-11-11
 - **Requirement (product, 2026-11-11):** a DAG can run several times a day and only the latest run is shown; a task name can belong to several DAGs.
 - **Sample data:**
@@ -359,6 +359,7 @@ The home page shows the latest run of every DAG and task. It reads `req-details/
   - A DAG is its business unit + `dag_id`; a task is that + `task_id`.
   - Rows identical in every field are collapsed.
   - Latest = the greatest `start_date`. A run with no start counts as the newest (it is what the DAG is doing now), and the finished run before it is shown as "Previous run". For the same start, the row with an end wins.
+  - The local demo API applies the latest-row grouping by source, type, DAG, and task (task rows include `task_id`); this behavior does not define the eventual live-feed identity contract.
   - A DAG's tasks are the latest row of each task name in that DAG. A failing task counts toward "Needs attention" only if it started at or after the DAG's latest run, so an old failure from a fixed run doesn't raise an alarm.
   - A running run's duration is worked out from the clock, not from `elapsed_time`.
   - Times show in the viewer's local time. `business_date` is read as `YYMMDD`, `YYYYMMDD` or `YYYY-MM-DD`.
@@ -378,6 +379,22 @@ The home page shows the latest run of every DAG and task. It reads `req-details/
 - **Ask:** A heartbeat or last-event time per business unit, and ideally the age of each row's last update. Is a "running for longer than expected" signal available (typical duration or SLO)?
 - **UI assumption:** The page shows when it last refreshed (every 30 seconds) and a note that it is a guide, not the source of truth. It can't flag stale business units or runs that look stuck.
 
+### API-033: Calendar YAML contracts have drifted
+- **Severity / status:** High · Open · raised 2026-11-24
+- **Spec sources:** The backend README points to the repository-root `CalendarManagementSpec.yml`. The web `generate:spec` script and mock documentation use `req-details/api-spec/CalendarManagementSpec.yml`.
+- **Differences:** The root contract documents admin-only amendments and lifecycle endpoints, selected-year replacement, and creates a missing calendar on upload. The `req-details` copy still lacks lifecycle/status coverage and differs in other calendar operation details. The upload and Excel-export date formats now match in both copies.
+- **Impact:** Generated frontend types and mocks are based on a different contract from the running backend, which can still produce incompatible behavior.
+- **Ask:** Choose one canonical YAML, sync/remove the duplicate, and generate frontend types and mocks from the same contract.
+- **UI assumption:** The API client converts backend JSON dates for the UI; workbook upload values and Excel exports use `YYYY-MM-DD`.
+
+### API-034: Execution-report CSV contract is undefined
+- **Severity / status:** High · Open · raised 2026-11-24
+- **Requirements / decision:** Section 8.2.2 specifies `DD-MM-YYYY` for upload workbooks, but the later explicit rule requires `YYYY-MM-DD` for all Excel exports. The implementation uses `YYYY-MM-DD` for the template, upload validation, and all-dates export; the source requirement's upload-format statement remains contradictory.
+- **Frontend:** The UI generates the downloadable `.xlsx` upload template in `YYYY-MM-DD` and offers an all-dates calendar export.
+- **Backend / YAML:** Upload verification and saving require `YYYY-MM-DD`; `GET /calendars/{calendar_name}/export` returns `YYYY-MM-DD`. Both YAML copies document the upload and export formats.
+- **Remaining gap:** Section 8.4’s CSV execution report is still absent. Its report columns and delivery trigger are not defined in the available contract.
+- **Next step:** Define the execution-report fields and delivery trigger, then implement the required CSV report; keep its CSV format distinct from the ISO-formatted Excel workbooks.
+
 ---
 
 ## Change log
@@ -395,3 +412,10 @@ The home page shows the latest run of every DAG and task. It reads `req-details/
 | 2026-11-11 | Home dashboard (latest DAG and task runs). Added a "Run history" section: API-029 (no API; both sample files are invalid JSON), API-030 (no run id, repeated rows, "latest" undefined), API-031 (state list not final), API-032 (no freshness signal). The intro now covers `req-details/dag-history/`. |
 | 2026-11-12 | Run states: the Airflow list arrived. API-031 rewritten from "list not final" to "confirm the feed sends these names". The dashboard now uses Airflow's states (`hold` dropped, `retry` read as `up_for_retry`). |
 | 2026-11-12 | Removed the last rule-based leftovers from the UI: the "Rule-based" filter and badge on the Calendars list, the rule engine and the `holiday-calendars`, `rules` and `preview` mocks, and the matching client functions and types. Demo calendars are now uploaded or migrated. API-005, API-009, API-010 and API-020 stay on hold. |
+| 2026-11-24 | Version 2 sections 8.2.2–8.2.4 keep upload, amend, activate, and deactivate in scope; section 8.5 excludes four-eyes approval for those actions only. Corrected API-011 and the changelog scope note. Added API-033 for drift between the backend and frontend calendar YAML sources. |
+| 2026-11-24 | Synchronized the audit requirement: calendar actions are logged backend-side, no audit-history API or UI view is provided. Updated both YAML descriptions and marked API-025 resolved. |
+| 2026-11-24 | Rechecked calendar file transfer against Version 2: confirmed Excel upload is unsupported, the frontend/backend CSV date formats disagree, the backend does not restrict upload year to current/next, and the required Excel template/execution-report downloads are absent. Updated API-008/API-021 and added API-034. |
+| 2026-11-24 | Added a read-only Control Plane demo run-history API: latest generated rows at `GET /v1/run-history`, full fixture at `/v1/run-history/demo`. No live ingestion, persistence, or authentication; API-029/API-030 remain open for the production contract. |
+| 2026-11-24 | Consolidated the demo run-history routes into `calendar_service.main:app`. Calendar and run-history APIs now share port 8000 and one startup command; the separate Control Plane server and port-8001 proxy are no longer used. Demo-only scope and open production questions are unchanged. |
+| 2026-11-24 | Replaced CSV upload with validated `.xlsx` workbooks, added row-level `verifyDates` preflight, the Excel template, and all-dates Excel export (`YYYY-MM-DD`); enforced past-date, upload-year, and name rules on the API and aligned both YAML copies. API-008 now tracks only the extra uploaded-calendar target; API-034 remains open for the undefined CSV execution-report flow. |
+| 2026-11-24 | Standardized the upload template, upload validator, UI guidance, and both API spec copies on `YYYY-MM-DD` to follow the later all-Excel-exports rule; documented the remaining conflict with section 8.2.2's `DD-MM-YYYY` wording. |

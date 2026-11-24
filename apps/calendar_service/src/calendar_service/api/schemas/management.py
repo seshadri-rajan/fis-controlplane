@@ -7,8 +7,10 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+NEW_NAME_PATTERN = r"^[A-Za-z0-9]{1,70}$"
 DATE_PATTERN = r"^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
 CalendarName = Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=NAME_PATTERN)]
+NewCalendarName = Annotated[str, StringConstraints(pattern=NEW_NAME_PATTERN)]
 CalendarStatus = Literal["ACTIVE", "INACTIVE"]
 
 
@@ -41,11 +43,15 @@ WriteDates = Annotated[list[CalendarDate], AfterValidator(validate_dates)]
 class CreateCalendar(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    calendarName: CalendarName
+    calendarName: NewCalendarName
     dates: WriteDates = []
 
 
-class UpdateCalendar(CreateCalendar):
+class UpdateCalendar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    calendarName: CalendarName
+    dates: WriteDates = []
     status: CalendarStatus
 
 
@@ -77,6 +83,21 @@ class UploadMetadata(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     year: Annotated[str, StringConstraints(pattern=r"^[0-9]{4}$")]
+
+
+class UploadVerificationItem(BaseModel):
+    row: int
+    value: str | None
+    date: str | None
+    valid: bool
+    errors: list[str]
+
+
+class UploadVerificationResponse(BaseModel):
+    year: int
+    valid: bool
+    items: list[UploadVerificationItem]
+    errors: list[str]
 
 
 class ValidationErrorDetail(BaseModel):

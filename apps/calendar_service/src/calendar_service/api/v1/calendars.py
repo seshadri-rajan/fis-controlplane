@@ -1,11 +1,14 @@
 """Calendar Management API under /v1."""
 
 from datetime import UTC, date, datetime
+from io import BytesIO
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from openpyxl import Workbook
+from pydantic import ValidationError
 
-from calendar_service.api.middlewares.oauth_auth import EditorDep, get_principal
+from calendar_service.api.middlewares.oauth_auth import AdminDep, EditorDep, get_principal
 from calendar_service.api.schemas.management import (
     CalendarDate,
     CalendarName,
@@ -15,13 +18,14 @@ from calendar_service.api.schemas.management import (
     ErrorResponse,
     UpdateCalendar,
     UploadedCalendar,
+    UploadVerificationResponse,
     format_date,
     parse_date,
 )
 from calendar_service.config.dependency import SessionDep, SettingsDep
 from calendar_service.infra.database.management import ManagedCalendar, ManagedCalendarRepository
 
-from .upload import read_upload
+from .upload import XLSX_MEDIA_TYPE, read_upload, verify_upload
 
 router = APIRouter(
     prefix="/v1/calendars",
@@ -54,12 +58,18 @@ UPLOAD_BODY = {
                             "additionalProperties": False,
                             "properties": {"year": {"type": "string", "pattern": "^[0-9]{4}$"}},
                         },
-                        "file": {"type": "string", "format": "binary"},
+                        "file": {
+                            "type": "string",
+                            "format": "binary",
+                            "description": (
+                                "Single-column .xlsx workbook with YYYY-MM-DD date values."
+                            ),
+                        },
                     },
                 },
                 "encoding": {
                     "data": {"contentType": "application/json"},
-                    "file": {"contentType": "text/csv"},
+                    "file": {"contentType": XLSX_MEDIA_TYPE},
                 },
             }
         },
@@ -100,6 +110,31 @@ async def _find(
     if row is None:
         raise HTTPException(404, "No calendar exists with the specified name.")
     return row
+
+
+def _require_uploaded_or_migrated(calendar: ManagedCalendar) -> None:
+    if calendar.is_uploaded != "Y" and calendar.is_migrated != "Y":
+        raise HTTPException(409, "Only uploaded or migrated calendars can be amended or managed.")
+
+
+async def _change_status(
+    calendar_name: str,
+    *,
+    active: bool,
+    user: AdminDep,
+    session: SessionDep,
+) -> CalendarResponse:
+    _check_name(calendar_name)
+    repository = ManagedCalendarRepository(session)
+    await repository.begin_write()
+    row = await _find(repository, calendar_name, lock=True)
+    _require_uploaded_or_migrated(row)
+    dates = [entry.calendar_date for entry in row.dates]
+    row.status = "A" if active else "I"
+    row.updated_at = datetime.now(UTC)
+    action = "ACTIVATE" if active else "DEACTIVATE"
+    await repository.commit(row, action, user.username)
+    return calendar_response(row, dates)
 
 
 @router.post(
@@ -160,9 +195,13 @@ async def get_calendar(
     return calendar_response(await _find(ManagedCalendarRepository(session), calendar_name))
 
 
-@router.patch("/{calendar_name}/update", operation_id="updateCalendar", responses=NOT_FOUND)
+@router.patch(
+    "/{calendar_name}/update",
+    operation_id="updateCalendar",
+    responses={**NOT_FOUND, 409: {"model": ErrorResponse}},
+)
 async def update_calendar(
-    calendar_name: CalendarName, body: UpdateCalendar, user: EditorDep, session: SessionDep
+    calendar_name: CalendarName, body: UpdateCalendar, user: AdminDep, session: SessionDep
 ) -> CalendarResponse:
     if calendar_name != body.calendarName:
         raise HTTPException(400, "calendarName must match the path calendar_name.")
@@ -170,11 +209,35 @@ async def update_calendar(
     repository = ManagedCalendarRepository(session)
     await repository.begin_write()
     row = await _find(repository, calendar_name, lock=True)
-    row.status = "A" if body.status == "ACTIVE" else "I"
+    _require_uploaded_or_migrated(row)
+    if row.status != "A":
+        raise HTTPException(409, "This calendar is inactive. Activate it before amending dates.")
+    if body.status != "ACTIVE":
+        raise HTTPException(400, "Use the deactivate endpoint to change calendar status.")
     row.updated_at = datetime.now(UTC)
     dates = await repository.replace_dates(row, [parse_date(day) for day in body.dates])
     await repository.commit(row, "UPDATE", user.username)
     return calendar_response(row, dates)
+
+
+@router.post(
+    "/{calendar_name}/activate",
+    responses={**NOT_FOUND, 409: {"model": ErrorResponse}},
+)
+async def activate_calendar(
+    calendar_name: CalendarName, user: AdminDep, session: SessionDep
+) -> CalendarResponse:
+    return await _change_status(calendar_name, active=True, user=user, session=session)
+
+
+@router.post(
+    "/{calendar_name}/deactivate",
+    responses={**NOT_FOUND, 409: {"model": ErrorResponse}},
+)
+async def deactivate_calendar(
+    calendar_name: CalendarName, user: AdminDep, session: SessionDep
+) -> CalendarResponse:
+    return await _change_status(calendar_name, active=False, user=user, session=session)
 
 
 @router.get(
@@ -197,11 +260,66 @@ async def get_dates(
     return [format_date(day) for day in sorted(dates)]
 
 
+@router.get(
+    "/{calendar_name}/export",
+    operation_id="exportCalendarDates",
+    responses={
+        **NOT_FOUND,
+        200: {
+            "content": {
+                XLSX_MEDIA_TYPE: {
+                    "schema": {"type": "string", "format": "binary"},
+                },
+            },
+        },
+    },
+    dependencies=READ_ACCESS,
+)
+async def export_calendar_dates(calendar_name: CalendarName, session: SessionDep) -> Response:
+    row = await _find(ManagedCalendarRepository(session), calendar_name)
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet("Calendar dates")
+    sheet.append(["Calendar date"])
+    for entry in sorted(row.dates, key=lambda item: item.calendar_date):
+        sheet.append([entry.calendar_date.isoformat()])
+    output = BytesIO()
+    workbook.save(output)
+    return Response(
+        content=output.getvalue(),
+        media_type=XLSX_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{calendar_name}.xlsx"'},
+    )
+
+
+@router.post(
+    "/upload/verify",
+    operation_id="verifyDates",
+    responses={
+        413: {"model": ErrorResponse},
+        415: {"model": ErrorResponse},
+    },
+    openapi_extra=UPLOAD_BODY,
+)
+async def verify_calendar_upload(
+    request: Request,
+    user: EditorDep,
+    settings: SettingsDep,
+    amend: Annotated[bool, Query()] = False,
+) -> UploadVerificationResponse:
+    if amend and "ADMIN" not in user.roles:
+        raise HTTPException(403, "Verifying amendment files requires ADMIN.")
+    return await verify_upload(request, settings.upload_max_bytes, amend=amend)
+
+
 @router.post(
     "/{calendar_name}/upload",
     operation_id="uploadCalendarDates",
     status_code=201,
-    responses={413: {"model": ErrorResponse}, 415: {"model": ErrorResponse}},
+    responses={
+        409: {"model": ErrorResponse},
+        413: {"model": ErrorResponse},
+        415: {"model": ErrorResponse},
+    },
     openapi_extra=UPLOAD_BODY,
 )
 async def upload_calendar(
@@ -210,6 +328,7 @@ async def upload_calendar(
     user: EditorDep,
     session: SessionDep,
     settings: SettingsDep,
+    create_only: Annotated[bool, Query(alias="createOnly")] = False,
 ) -> CalendarResponse:
     _check_name(calendar_name)
     year, incoming = await read_upload(request, settings.upload_max_bytes)
@@ -217,7 +336,15 @@ async def upload_calendar(
     await repository.begin_write()
     row = await repository.get(calendar_name, lock=True)
     created = False
+    if row is not None and create_only:
+        raise HTTPException(409, "A calendar with the specified name already exists.")
     if row is None:
+        try:
+            CreateCalendar(calendarName=calendar_name)
+        except ValidationError as exc:
+            raise HTTPException(
+                400, "New calendar names must contain 1 to 70 letters or digits."
+            ) from exc
         row = await repository.add(calendar_name, user.username, uploaded=True)
         created = row is not None
     if row is None:  # Another transaction created the calendar between lookup and insert.

@@ -291,6 +291,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/calendars/{calendar_name}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique, case-sensitive calendar name. */
+                calendar_name: components["parameters"]["CalendarName"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Export all calendar dates as an Excel workbook
+         * @description Returns every stored date for the selected calendar in ascending order.
+         *     The workbook has one `Calendar date` column and uses `YYYY-MM-DD` values.
+         */
+        get: operations["exportCalendarDates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/calendars/upload/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify dates in an Excel upload before saving
+         * @description Validates every date row in the workbook and returns a row-level valid
+         *     flag and errors. A verification result with valid=false must not be
+         *     uploaded. Dates before today are always invalid. Unless amend=true,
+         *     dates must be in the current or next calendar year.
+         */
+        post: operations["verifyDates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/calendars/{calendar_name}/upload": {
         parameters: {
             query?: never;
@@ -304,16 +351,20 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Upload calendar dates from a CSV file
-         * @description Requires EDITOR or ADMIN and an existing calendar.
+         * Upload calendar dates from an Excel workbook
+         * @description Requires EDITOR or ADMIN. Creates the calendar if it does not exist;
+         *     newly created names must contain 1 to 70 letters or digits.
          *
-         *     Accepts a UTF-8 CSV file containing exactly one column with the header
-         *     date. Each subsequent record must contain one ISO 8601 full-date value
-         *     (YYYY-MM-DD). The maximum file size is 5 MiB (5,242,880 bytes).
+         *     Accepts a JSON metadata part with a four-digit year and an .xlsx workbook.
+         *     The year must be the current or next calendar year. The workbook must
+         *     contain one worksheet, a single `Calendar date` column, and 1 to 366
+         *     text dates in `YYYY-MM-DD` format. Every date must be in the requested year.
+         *     The maximum file size is 5 MiB (5,242,880 bytes).
          *
          *     Atomically replaces the stored dates without changing other calendar
-         *     fields. Duplicate or invalid dates cause the entire upload to fail.
-         *     A header-only CSV clears the dates array. An empty file is invalid.
+         *     fields and marks the calendar as uploaded. Duplicate or invalid dates
+         *     cause the entire upload to fail. Successful uploads are recorded in the
+         *     backend audit log.
          */
         post: operations["uploadCalendarDates"];
         delete?: never;
@@ -373,14 +424,28 @@ export interface components {
          * @example 25-12-2027
          */
         CalendarDate: string;
+        /** @description Unique calendar dates; responses are sorted ascending. */
+        CalendarDates: components["schemas"]["CalendarDate"][];
+        UploadVerificationResponse: {
+            year: number;
+            valid: boolean;
+            items: components["schemas"]["UploadVerificationItem"][];
+            errors: string[];
+        };
         /**
-         * @description Unique calendar dates; responses are sorted ascending.
          * @example [
          *       "01-01-2027",
          *       "25-12-2027"
          *     ]
          */
-        CalendarDates: components["schemas"]["CalendarDate"][];
+        UploadVerificationItem: {
+            row: number;
+            value: string | null;
+            /** Format: date */
+            date: string | null;
+            valid: boolean;
+            errors: string[];
+        };
         /**
          * @description Scheduling classification associated with the calendar
          * @example WORKING_DAY
@@ -603,7 +668,7 @@ export interface components {
         /**
          * @description Malformed request or validation failure, including invalid dates,
          *     duplicate dates, invalid pagination, mismatched calendar names,
-         *     missing fields, or malformed CSV content.
+         *     missing fields, or malformed Excel workbook content.
          */
         BadRequest: {
             headers: {
@@ -1119,9 +1184,101 @@ export interface operations {
             500: components["responses"]["InternalServerError"];
         };
     };
-    uploadCalendarDates: {
+    exportCalendarDates: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                /** @description Unique, case-sensitive calendar name. */
+                calendar_name: components["parameters"]["CalendarName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Excel workbook containing all dates for the calendar. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    verifyDates: {
+        parameters: {
+            query?: {
+                /** @description Allows future years already held by a calendar; ADMIN only. */
+                amend?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    data: {
+                        year: string;
+                    };
+                    /**
+                     * Format: binary
+                     * @description Single-column .xlsx workbook with YYYY-MM-DD date values.
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Row-by-row validation results; invalid rows are returned, not uploaded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadVerificationResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Uploaded file exceeds the limit. */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Request or uploaded file has an unsupported media type. */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    uploadCalendarDates: {
+        parameters: {
+            query?: {
+                /**
+                 * @description When true, return 409 if the calendar name already exists. Use this
+                 *     for create-from-file so a duplicate name cannot overwrite a calendar.
+                 *     When false or omitted, upload to an existing calendar or create it if absent.
+                 */
+                createOnly?: boolean;
+            };
             header?: never;
             path: {
                 /** @description Unique, case-sensitive calendar name. */
@@ -1132,9 +1289,13 @@ export interface operations {
         requestBody: {
             content: {
                 "multipart/form-data": {
+                    data: {
+                        /** @example 2027 */
+                        year: string;
+                    };
                     /**
                      * Format: binary
-                     * @description UTF-8 CSV file with a single date column.
+                     * @description Single-column .xlsx workbook with YYYY-MM-DD date values.
                      */
                     file: string;
                 };
@@ -1142,7 +1303,7 @@ export interface operations {
         };
         responses: {
             /** @description Dates replaced successfully; returns the updated calendar. */
-            200: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1153,7 +1314,15 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+            /** @description The calendar already exists and createOnly is true. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description Uploaded file exceeds the 5 MiB limit. */
             413: {
                 headers: {

@@ -2,9 +2,40 @@
 
 ## Unreleased
 
+### Version 2 requirement scope
+
+- Calendar upload, amendment, activation, and deactivation remain in scope (requirements sections
+  8.2.2–8.2.4).
+- Four-eyes approval for those operations is out of scope (section 8.5); this does not remove the
+  operations themselves.
+- Those actions are logged by the backend for audit purposes; the UI has no audit view, as required
+  by section 8.2.2.
+- No calendar implementation behavior changed for this scope clarification.
+
+#### Standing comparison baseline
+
+- For future calendar reviews, use the pasted Version 2 calendar requirements (sections 8.2.1–8.5)
+  as the functional baseline. Produce separate frontend and backend comparisons; include the
+  backend comparison against the root `CalendarManagementSpec.yml`.
+- Treat section 8.5 as excluding four-eyes approval only, not upload, amend, activate, or deactivate.
+- Apply the later explicit requirement that all Excel exports use `YYYY-MM-DD`; this now also
+  governs the upload template and its input format, overriding section 8.2.2's `DD-MM-YYYY` wording.
+
+### Version 2 Excel file transfer
+
+- Uploads now accept `.xlsx` workbooks only. Both frontend and backend validate a single
+  `Calendar date` column, `YYYY-MM-DD` values, duplicates, valid dates, and the current/next-year
+  upload limit.
+- The UI generates a downloadable Excel upload template, and the backend provides an all-dates
+  Excel export; both use `YYYY-MM-DD` values.
+- Backend upload creation applies the 70-character alphanumeric calendar-name rule, and the
+  frontend/backend upload-size limit is aligned at 5 MiB.
+- The separate section 8.4 CSV execution report is still open pending report fields and a delivery
+  trigger (tracked in API-034).
+
 ### Calendar Management API and web cutover
 
-The backend and web app now use all seven operations in the
+The backend and web app now use the operations in the
 [Calendar Management `/v1` contract](./CalendarManagementSpec.yml). The service starts with a
 fresh date-only database; there is no migration from the previous schema. The `/api/ui` routes,
 local login, and rule-preview screen were removed. The Airflow client was not migrated.
@@ -21,13 +52,13 @@ Backend source paths below are relative to `apps/calendar_service/src/calendar_s
 | File | Change |
 | --- | --- |
 | `api/v1/calendars.py` | Implements the seven `/v1` calendar operations. |
-| `api/v1/upload.py` | Validates multipart uploads, file size, CSV contents, and dates before writing. |
+| `api/v1/upload.py` | Validates multipart uploads, file size, Excel workbook contents, and dates before writing. |
 | `api/schemas/management.py` | Defines request and response models and validates calendar names and dates. |
 | `api/middlewares/oauth_auth.py` | Enforces bearer authentication, the development auth switch, and write permissions. |
 | `infra/security/oauth.py` | Validates access tokens and maps provider claims to application roles. |
 | `infra/database/management.py` | Defines calendar, date, and audit tables and handles filtering and date replacement. |
 | `infra/database/migrations/versions/20261118_management.py` | Creates the fresh date-only database schema. |
-| `apps/calendar_service/tests/test_management_api.py` | Tests the calendar lifecycle, CSV uploads, exclusions, auditing, and OAuth modes. |
+| `apps/calendar_service/tests/test_management_api.py` | Tests the calendar lifecycle, Excel uploads/exports, exclusions, auditing, and OAuth modes. |
 | `apps/web/src/features/calendars/MonthGrid.tsx` | Displays stored calendar dates without using the old preview API. |
 
 #### Changed
@@ -37,7 +68,7 @@ Backend source paths below are relative to `apps/calendar_service/src/calendar_s
 | `.env.example` | Shows the auth switch, OAuth provider configuration, and upload limit. |
 | `CalendarManagementSpec.yml` | Clarifies bearer auth, date formats, exclusions, uploads, and response shapes. |
 | `README.md` | Updates the quickstart and schema-generation steps and notes the Airflow limitation. |
-| `apps/calendar_service/README.md` | Documents fresh database setup, OAuth configuration, and CSV uploads. |
+| `apps/calendar_service/README.md` | Documents fresh database setup, OAuth configuration, Excel uploads, and exports. |
 | `apps/calendar_service/pyproject.toml` | Adds SQLite, HTTP, multipart, and JWT dependencies. |
 | `apps/calendar_service/scripts/export_openapi.py` | Updates the export script description for `/v1`. |
 | `api/middlewares/__init__.py` | Removes obsolete references to session and API-key middleware. |
@@ -49,9 +80,9 @@ Backend source paths below are relative to `apps/calendar_service/src/calendar_s
 | `docs/api/openapi.json` | Publishes the generated `/v1` contract. |
 | `apps/web/README.md` | Documents startup, access-token entry, and type generation. |
 | `apps/web/src/App.tsx` | Makes calendars the main screen and lets users supply or clear an access token. |
-| `apps/web/src/features/calendars/CalendarsPage.tsx` | Connects browsing, filtering, details, exclusions, create/edit, and CSV upload to `/v1`. |
+| `apps/web/src/features/calendars/CalendarsPage.tsx` | Connects browsing, filtering, details, calendar export, lifecycle, and amendment flows to `/v1`. |
 | `apps/web/src/lib/api/README.md` | Identifies the backend OpenAPI schema as the source for frontend types. |
-| `apps/web/src/lib/api/client.ts` | Replaces the old API calls with typed `/v1` calls, including bearer headers and multipart uploads. |
+| `apps/web/src/lib/api/client.ts` | Replaces the old API calls with typed `/v1` calls, including bearer headers, multipart Excel uploads, and downloads. |
 | `apps/web/src/lib/api/schema.d.ts` | Regenerates frontend types from the `/v1` contract. |
 | `apps/web/src/main.tsx` | Removes the retired session-auth provider. |
 | `apps/web/vite.config.ts` | Proxies `/v1` instead of `/api`. |

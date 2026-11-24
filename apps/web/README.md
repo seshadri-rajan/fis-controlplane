@@ -1,12 +1,9 @@
-# Calendar web app
+# web
 
-The React app uses the Calendar Management `/v1` API for paginated browsing,
-calendar details and dates, exclusions, create/update, and CSV upload.
+React SPA. One application serving both the Calendar Service UI and the Control Plane view.
 
-## Run locally
+## Why one app, not two
 
-Start the [calendar service](../calendar_service/README.md) on port 8000, then run
-from this directory:
 Beyond the obvious (one build, one component library), it means the Control Plane view inherits
 the Calendar Service login. That turns **R-04** — "the control plane UI has no defined
 authentication" — from an accepted risk into a non-issue, for roughly zero extra effort.
@@ -87,15 +84,12 @@ npm run dev
 npm run build
 ```
 
-Vite proxies `/v1` to the backend. In production, serve the SPA and `/v1` under
-the same origin.
+In development, the navbar's **API mode** selector switches between **Mock** and
+**Local backend**. Mock mode uses MSW and the demo login. Local backend mode stops MSW, proxies
+all `/v1` APIs, including calendars and run history, to the single backend at
+`http://127.0.0.1:8000`. Start `calendar_service.main:app`; keep authentication disabled with
+`CALENDAR_AUTH_ENABLED=false`. This mode is local-development only and grants the local UI an
+ADMIN identity. Run history is generated demo data; metadata is not available from the backend.
 
-When auth is enabled, obtain an OAuth access token from the configured provider and
-paste it into the header's token field, without the `Bearer` prefix. The app
-stores it only in memory; clearing it or reloading the page removes it. No token
-is needed when the backend explicitly runs with auth disabled.
-
-## Regenerate API types
-
-Export the backend OpenAPI schema first, then run `npm run generate:api`.
-The generated types must reflect the backend contract; do not edit them by hand.
+SSO through the Control Plane and AD-group-based Admin/View authorization remain deferred to the
+final phase; application-level user management is out of scope.

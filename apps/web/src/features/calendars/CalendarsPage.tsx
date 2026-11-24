@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
-import { getCalendarDates, listCalendars, setCalendarActive } from "../../lib/api/client";
+import {
+  downloadCalendarExcel,
+  getCalendarDates,
+  listCalendars,
+  setCalendarActive,
+} from "../../lib/api/client";
 import type { ApiError, SpecCalendar } from "../../lib/api/client";
 import { isActive } from "../../lib/api/proposed";
 import { useAuth } from "../auth/AuthProvider";
@@ -82,10 +87,13 @@ export default function CalendarsPage() {
     },
   });
 
+  const exportCalendar = useMutation({ mutationFn: downloadCalendarExcel });
+
   const current = calendars.data?.find((c) => c.calendarName === selected) ?? null;
-  // Amending needs EDITOR; changing a calendar's status is ADMIN only (has() treats ADMIN as a superset).
-  const canAmend = has("EDITOR");
-  const canToggle = has("ADMIN");
+  // Lifecycle actions are available to admins for uploaded and migrated calendars only.
+  const canManageCurrent = !!current && kindOf(current) !== null;
+  const canAmend = canManageCurrent && has("ADMIN");
+  const canToggle = canManageCurrent && has("ADMIN");
 
   const counts = useMemo(() => {
     const result: Record<Filter, number> = {
@@ -137,17 +145,6 @@ export default function CalendarsPage() {
           {(calendars.error as Error).message}
         </p>
       )}
-      <label className="flex flex-col gap-1 text-sm">
-        Dates (DD-MM-YYYY, one per line)
-        <textarea className={field} name="dates" rows={4} defaultValue={calendar?.dates.join("\n")} />
-      </label>
-      <Failure error={save.error} />
-      <button className={button} disabled={save.isPending}>
-        {calendar ? "Save changes" : "Create calendar"}
-      </button>
-    </form>
-  );
-}
 
       {calendars.data?.length === 0 && (
         <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
@@ -206,6 +203,7 @@ export default function CalendarsPage() {
                       setYearChoice(null);
                       setConfirming(false);
                       toggleActive.reset();
+                      exportCalendar.reset();
                     }}
                     className={`w-full rounded-lg border p-3 text-left ${
                       name === selected
@@ -297,7 +295,21 @@ export default function CalendarsPage() {
                     )}
                   </div>
                 )}
+                <button
+                  type="button"
+                  disabled={exportCalendar.isPending}
+                  onClick={() => exportCalendar.mutate(current.calendarName ?? "")}
+                  className="ml-auto rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  {exportCalendar.isPending ? "Preparing Excel…" : "Export all dates"}
+                </button>
               </div>
+
+              {exportCalendar.isError && (
+                <p role="alert" className="mt-3 rounded-md bg-rose-50 p-2 text-sm text-rose-800">
+                  {(exportCalendar.error as Error).message}
+                </p>
+              )}
 
               {!isActive(current) && (
                 <p className="mt-2 text-xs text-slate-500">
@@ -411,109 +423,8 @@ export default function CalendarsPage() {
               </>
             )}
           </div>
-          {selectedYear && visibleDates.length > 0 && (
-            <MonthGrid year={Number(selectedYear)} dates={visibleDates} />
-          )}
-          <CalendarEditor key={`${name}:${current.updatedAt}`} api={api} calendar={current} onSaved={onSaved} />
-        </>
-      )}
-    </section>
-  );
-}
-
-export default function CalendarsPage({ api }: { api: CalendarApi }) {
-  const queryClient = useQueryClient();
-  const [selected, setSelected] = useState<string>();
-  const [search, setSearch] = useState("");
-  const [migrated, setMigrated] = useState("");
-  const [page, setPage] = useState(1);
-  const list = useQuery({
-    queryKey: ["calendars", "list", page, search, migrated],
-    queryFn: () => api.list({
-      offset: page,
-      calendarName: search || undefined,
-      migrated: migrated ? migrated === "yes" : undefined,
-    }),
-  });
-  const uploaded = useQuery({
-    queryKey: ["calendars", "uploaded"],
-    queryFn: api.uploaded,
-    enabled: list.isSuccess,
-  });
-  const [saved, setSaved] = useState("");
-  function onSaved(calendar: Calendar) {
-    setSelected(calendar.calendarName);
-    setSaved(`Saved ${calendar.calendarName}.`);
-    void queryClient.invalidateQueries({ queryKey: ["calendars"] });
-  }
-  return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Calendars</h1>
-      <Failure error={list.error} />
-      {list.isPending && <p>Loading calendars...</p>}
-      {list.isSuccess && (
-        <>
-          {saved && <p role="status" className="text-sm text-emerald-800">{saved}</p>}
-          <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-            <aside className="space-y-4">
-              <section className={panel}>
-                <label className="flex flex-col gap-1 text-sm">
-                  Search by name
-                  <input className={field} value={search} maxLength={128} onChange={(event) => {
-                    setSearch(event.target.value);
-                    setPage(1);
-                  }} />
-                </label>
-                <label className="flex flex-col gap-1 text-sm">
-                  Migration status
-                  <select className={field} value={migrated} onChange={(event) => {
-                    setMigrated(event.target.value);
-                    setPage(1);
-                  }}>
-                    <option value="">All</option>
-                    <option value="yes">Migrated</option>
-                    <option value="no">Not migrated</option>
-                  </select>
-                </label>
-                {!list.data.calendars.length && <p className="text-sm">No matching calendars.</p>}
-                <ul className="space-y-1">
-                  {list.data.calendars.map((calendar) => (
-                    <li key={calendar.calendarName}>
-                      <button type="button" onClick={() => setSelected(calendar.calendarName)}
-                        aria-pressed={selected === calendar.calendarName}
-                        className="w-full rounded border border-slate-200 p-2 text-left text-sm aria-pressed:bg-slate-100">
-                        {calendar.calendarName} <span className="text-slate-500">({calendar.status})</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <button className={button} disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
-                  <span>{page} / {Math.max(list.data.totalPages, 1)}</span>
-                  <button className={button} disabled={page >= list.data.totalPages} onClick={() => setPage(page + 1)}>Next</button>
-                </div>
-              </section>
-              <section className={panel}>
-                <h2 className="font-semibold">Uploaded calendars</h2>
-                <Failure error={uploaded.error} />
-                {uploaded.data?.length === 0 && <p className="text-sm">No uploads yet.</p>}
-                <ul className="space-y-1 text-sm">
-                  {uploaded.data?.map(({ name, migrated }) => (
-                    <li key={name}>
-                      <button type="button" className="underline" onClick={() => setSelected(name)}>
-                        {name}{migrated ? " (migrated)" : ""}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-              <CalendarEditor api={api} onSaved={onSaved} />
-              <CalendarUpload api={api} onSaved={onSaved} />
-            </aside>
-            {selected && <CalendarDetail key={selected} api={api} name={selected} onSaved={onSaved} />}
-          </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

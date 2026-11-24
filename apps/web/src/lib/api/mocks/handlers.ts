@@ -1,6 +1,11 @@
 import { http, HttpResponse } from "msw";
 import { isPastDate, todayIso } from "../../dates";
-import { MAX_UPLOAD_BYTES, parseDatesCsv } from "../parseDatesCsv";
+import {
+  calendarWorkbook,
+  MAX_UPLOAD_BYTES,
+  parseCalendarWorkbook,
+  XLSX_MEDIA_TYPE,
+} from "../calendarWorkbook";
 import type { CalendarStatusFields } from "../proposed";
 import type { components } from "../spec";
 import { runHistory } from "./runHistory";
@@ -10,8 +15,12 @@ type User = components["schemas"]["User"];
 type LoginRequest = components["schemas"]["LoginRequest"];
 type ErrorResponse = components["schemas"]["ErrorResponse"];
 type Calendar = components["schemas"]["Calendar"] & CalendarStatusFields;
-type CalendarCreateRequest = components["schemas"]["CalendarCreateRequest"];
-type CalendarWriteRequest = components["schemas"]["CalendarWriteRequest"];
+type CalendarCreateRequest = { calendarName: string; dates: string[] };
+type CalendarWriteRequest = {
+  calendarName: string;
+  dates: string[];
+  status: "ACTIVE" | "INACTIVE";
+};
 
 /** All mock accounts accept this password. */
 export const MOCK_PASSWORD = "password123";
@@ -46,15 +55,13 @@ function authenticate(request: Request, roles?: string[]): Session {
 }
 
 const WRITE_ROLES = ["EDITOR", "ADMIN"];
-const CALENDAR_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
+const CALENDAR_NAME = /^[A-Za-z0-9]{1,70}$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const API_DATE = /^(\d{2})-(\d{2})-(\d{4})$/;
 
 const INACTIVE_MESSAGE = "This calendar is inactive. Activate it before changing its dates";
 
-/**
- * Proposed (API-026): ADMIN-only activate / deactivate. Repeating either is harmless, so the
- * answer is the same whether or not the status changed.
- */
+/** ADMIN-only lifecycle actions are idempotent and apply only to uploaded or migrated calendars. */
 const activation = (action: "activate" | "deactivate", active: boolean) =>
   http.post(`/v1/calendars/:name/${action}`, ({ request, params }) => {
     const session = authenticate(request, ["ADMIN"]);
@@ -63,8 +70,17 @@ const activation = (action: "activate" | "deactivate", active: boolean) =>
     const calendars = loadCalendars();
     const index = calendars.findIndex((c) => c.calendarName === params.name);
     if (index === -1) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+    const current = calendars[index];
+    if (!current.uploaded && !current.migrated) {
+      return error(409, "CONFLICT", "Only uploaded or migrated calendars can be managed");
+    }
 
-    const updated: Calendar = { ...calendars[index], active, updatedAt: new Date().toISOString() };
+    const updated: Calendar = {
+      ...current,
+      active,
+      status: active ? "ACTIVE" : "INACTIVE",
+      updatedAt: new Date().toISOString(),
+    };
     calendars[index] = updated;
     saveCalendars(calendars);
     return HttpResponse.json(updated);
@@ -112,6 +128,56 @@ export const handlers = [
     return HttpResponse.json([...(calendar.dates ?? [])].sort());
   }),
 
+  http.get("/v1/calendars/:name/export", async ({ request, params }) => {
+    const session = authenticate(request);
+    if ("failure" in session) return session.failure;
+
+    const calendar = loadCalendars().find((c) => c.calendarName === params.name);
+    if (!calendar) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+    const workbook = await calendarWorkbook(calendar.dates ?? []);
+    return new HttpResponse(workbook, {
+      headers: {
+        "Content-Type": XLSX_MEDIA_TYPE,
+        "Content-Disposition": `attachment; filename="calendar-${String(params.name)}.xlsx"`,
+      },
+    });
+  }),
+
+  http.post("/v1/calendars/upload/verify", async ({ request }) => {
+    const session = authenticate(request, WRITE_ROLES);
+    if ("failure" in session) return session.failure;
+
+    const form = await request.formData().catch(() => null);
+    const file = form?.get("file");
+    const metadata = form?.get("data");
+    if (!(file instanceof File) || !(metadata instanceof Blob)) {
+      return error(400, "BAD_REQUEST", "JSON metadata and an Excel file are required");
+    }
+    if (!file.name.toLowerCase().endsWith(".xlsx") || file.type !== XLSX_MEDIA_TYPE) {
+      return error(415, "UNSUPPORTED_MEDIA_TYPE", "The file must be an .xlsx workbook");
+    }
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return error(413, "PAYLOAD_TOO_LARGE", "The file exceeds the 5 MiB limit");
+    }
+
+    let year: string | undefined;
+    try {
+      year = (JSON.parse(await metadata.text()) as { year?: string }).year;
+    } catch {
+      return error(400, "BAD_REQUEST", "Upload metadata must contain a valid year");
+    }
+    if (!year || !/^\d{4}$/.test(year)) {
+      return error(400, "BAD_REQUEST", "Upload metadata must contain a valid year");
+    }
+
+    const amend = new URL(request.url).searchParams.get("amend") === "true";
+    if (amend && !session.user.role.includes("ADMIN")) {
+      return error(403, "FORBIDDEN", "Verifying amendment files requires ADMIN");
+    }
+    const result = await parseCalendarWorkbook(await file.arrayBuffer(), Number(year), amend);
+    return HttpResponse.json(result);
+  }),
+
   http.get("/v1/calendars/:name", ({ request, params }) => {
     const session = authenticate(request);
     if ("failure" in session) return session.failure;
@@ -122,35 +188,45 @@ export const handlers = [
   }),
 
   http.patch("/v1/calendars/:name/update", async ({ request, params }) => {
-    const session = authenticate(request, WRITE_ROLES);
+    const session = authenticate(request, ["ADMIN"]);
     if ("failure" in session) return session.failure;
 
     const calendars = loadCalendars();
     const index = calendars.findIndex((c) => c.calendarName === params.name);
     if (index === -1) return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
     const current = calendars[index];
+    if (!current.uploaded && !current.migrated) {
+      return error(409, "CONFLICT", "Only uploaded or migrated calendars can be amended");
+    }
     if (current.active === false) return error(409, "CONFLICT", INACTIVE_MESSAGE);
 
-    const body = (await request.json().catch(() => null)) as
-      | (Partial<CalendarWriteRequest> & { calendarName?: string })
-      | null;
-    if (!body || !Array.isArray(body.dates) || typeof body.holidayCalendar !== "string") {
-      return error(400, "BAD_REQUEST", "dates and holidayCalendar are required");
+    const body = (await request.json().catch(() => null)) as Partial<CalendarWriteRequest> | null;
+    if (
+      !body ||
+      body.calendarName !== params.name ||
+      !Array.isArray(body.dates) ||
+      (body.status !== "ACTIVE" && body.status !== "INACTIVE")
+    ) {
+      return error(400, "BAD_REQUEST", "calendarName, dates, and status are required");
     }
-    if (body.calendarName !== undefined && body.calendarName !== params.name) {
-      return error(400, "BAD_REQUEST", "calendarName must match the calendar in the path");
+    if (body.status !== "ACTIVE") {
+      return error(400, "BAD_REQUEST", "Use the deactivate endpoint to change calendar status");
     }
-    if (body.dates.some((d) => !ISO_DATE.test(d)) || new Set(body.dates).size !== body.dates.length) {
-      return error(400, "BAD_REQUEST", "dates must be unique YYYY-MM-DD values");
+    const dates = body.dates.map((date) => {
+      const match = API_DATE.exec(date);
+      return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
+    });
+    if (dates.some((date) => !ISO_DATE.test(date)) || new Set(dates).size !== dates.length) {
+      return error(400, "BAD_REQUEST", "dates must be unique DD-MM-YYYY values");
     }
 
     // Proposed rule (API-027): history is read-only, so no date before today may be added or removed.
     const before = new Set(current.dates ?? []);
-    const after = new Set(body.dates);
+    const after = new Set(dates);
     const today = todayIso();
     const changedPast = [
       ...[...before].filter((d) => !after.has(d)),
-      ...body.dates.filter((d) => !before.has(d)),
+      ...dates.filter((d) => !before.has(d)),
     ]
       .filter((d) => isPastDate(d, today))
       .sort();
@@ -159,23 +235,17 @@ export const handlers = [
       return error(400, "BAD_REQUEST", `Dates before ${today} cannot be changed (${changedPast[0]}${more})`);
     }
 
-    // The spec's update replaces every writable field: anything the body omits is cleared.
+    // Keep the mock's UI-facing dates in ISO form after validating the API's wire format.
     const { calendarName, migrated, uploaded, active, createdBy, createdAt } = current;
     const updated: Calendar = {
       calendarName,
       migrated,
       uploaded,
       active,
+      status: "ACTIVE",
       createdBy,
       createdAt,
-      dates: [...body.dates].sort(),
-      holidayCalendar: body.holidayCalendar,
-      ...(body.dateRuleType !== undefined && { dateRuleType: body.dateRuleType }),
-      ...(body.dayOfWeek !== undefined && { dayOfWeek: body.dayOfWeek }),
-      ...(body.runDate !== undefined && { runDate: body.runDate }),
-      ...(body.runDay !== undefined && { runDay: body.runDay }),
-      ...(body.holidayRun !== undefined && { holidayRun: body.holidayRun }),
-      ...(body.holidayOffset !== undefined && { holidayOffset: body.holidayOffset }),
+      dates: [...dates].sort(),
       updatedAt: new Date().toISOString(),
     };
     calendars[index] = updated;
@@ -194,8 +264,8 @@ export const handlers = [
     if (!body?.calendarName || !CALENDAR_NAME.test(body.calendarName)) {
       return error(400, "BAD_REQUEST", "calendarName is missing or invalid");
     }
-    if (typeof body.holidayCalendar !== "string" || !Array.isArray(body.dates)) {
-      return error(400, "BAD_REQUEST", "dates and holidayCalendar are required");
+    if (!Array.isArray(body.dates)) {
+      return error(400, "BAD_REQUEST", "dates are required");
     }
     if (body.dates.some((d) => !ISO_DATE.test(d)) || new Set(body.dates).size !== body.dates.length) {
       return error(400, "BAD_REQUEST", "dates must be unique YYYY-MM-DD values");
@@ -212,6 +282,7 @@ export const handlers = [
       dates: [...body.dates].sort(),
       migrated: false,
       uploaded: false,
+      status: "ACTIVE",
       createdBy: session.user.username,
       createdAt: now,
       updatedAt: now,
@@ -229,38 +300,88 @@ export const handlers = [
     if ("failure" in session) return session.failure;
 
     const calendars = loadCalendars();
-    const index = calendars.findIndex((c) => c.calendarName === params.name);
-    if (index === -1) {
-      return error(404, "NOT_FOUND", `No calendar named "${String(params.name)}"`);
+    const calendarName = String(params.name);
+    const index = calendars.findIndex((c) => c.calendarName === calendarName);
+    const createOnly = new URL(request.url).searchParams.get("createOnly") === "true";
+    if (index !== -1 && calendars[index].active === false) {
+      return error(409, "CONFLICT", INACTIVE_MESSAGE);
     }
-    if (calendars[index].active === false) return error(409, "CONFLICT", INACTIVE_MESSAGE);
 
     const form = await request.formData().catch(() => null);
     const file = form?.get("file");
     if (!(file instanceof File)) {
       return error(400, "BAD_REQUEST", "A file part named file is required");
     }
-    if (file.type !== "text/csv") {
-      return error(415, "UNSUPPORTED_MEDIA_TYPE", "The file must be text/csv");
+    if (!file.name.toLowerCase().endsWith(".xlsx") || file.type !== XLSX_MEDIA_TYPE) {
+      return error(415, "UNSUPPORTED_MEDIA_TYPE", "The file must be an .xlsx workbook");
     }
     if (file.size > MAX_UPLOAD_BYTES) {
       return error(413, "PAYLOAD_TOO_LARGE", "The file exceeds the 5 MiB limit");
     }
 
-    const parsed = parseDatesCsv(await file.text());
-    if (parsed.errors.length > 0) {
-      return error(400, "BAD_REQUEST", parsed.errors[0]);
+    const metadata = form?.get("data");
+    if (!(metadata instanceof Blob)) {
+      return error(400, "BAD_REQUEST", "JSON upload metadata is required");
+    }
+    let year: string | undefined;
+    try {
+      year = (JSON.parse(await metadata.text()) as { year?: string }).year;
+    } catch {
+      return error(400, "BAD_REQUEST", "Upload metadata must contain a valid year");
+    }
+    if (!year || !/^\d{4}$/.test(year)) {
+      return error(400, "BAD_REQUEST", "Upload metadata must contain a valid year");
+    }
+    const currentYear = new Date().getFullYear();
+    if (
+      ![String(currentYear), String(currentYear + 1)].includes(year)
+    ) {
+      return error(400, "BAD_REQUEST", "Dates and upload metadata must use the current or next year");
+    }
+    const verification = await parseCalendarWorkbook(await file.arrayBuffer(), Number(year), false);
+    if (
+      !verification.valid ||
+      verification.items.some((item) => item.date && !item.date.startsWith(`${year}-`))
+    ) {
+      return error(
+        400,
+        "BAD_REQUEST",
+        verification.items.flatMap((item) => item.errors)[0] ??
+          "Dates and upload metadata must use the same year",
+      );
     }
 
+    if (index !== -1 && createOnly) {
+      return error(409, "CONFLICT", `A calendar named "${calendarName}" already exists`);
+    }
+    if (index === -1 && !/^[A-Za-z0-9]{1,70}$/.test(calendarName)) {
+      return error(400, "BAD_REQUEST", "New calendar names must contain 1 to 70 letters or digits");
+    }
+
+    const now = new Date().toISOString();
+    const existing = index === -1 ? undefined : calendars[index];
+    const keptDates = (existing?.dates ?? []).filter((date) => !date.startsWith(`${year}-`));
     const updated: Calendar = {
-      ...calendars[index],
-      dates: parsed.dates,
+      ...(existing ?? {
+        calendarName,
+        dates: [],
+        holidayCalendar: "",
+        migrated: false,
+        createdBy: session.user.username,
+        createdAt: now,
+      }),
+      dates: [
+        ...keptDates,
+        ...verification.items.map((item) => item.date).filter((date): date is string => !!date),
+      ].sort(),
       uploaded: true,
-      updatedAt: new Date().toISOString(),
+      status: existing?.status ?? "ACTIVE",
+      updatedAt: now,
     };
-    calendars[index] = updated;
+    if (index === -1) calendars.push(updated);
+    else calendars[index] = updated;
     saveCalendars(calendars);
-    return HttpResponse.json(updated);
+    return HttpResponse.json(updated, { status: 201 });
   }),
 
   http.post("/v1/login", async ({ request }) => {
