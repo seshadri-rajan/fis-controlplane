@@ -1,244 +1,28 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Calendar Service",
-    "version": "0.1.0"
+    "title": "Calendar Management API",
+    "version": "1.0.0"
   },
   "paths": {
-    "/api/ui/auth/login": {
+    "/v1/calendars": {
       "post": {
         "tags": [
-          "auth"
-        ],
-        "summary": "Login",
-        "operationId": "login_api_ui_auth_login_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoginRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CurrentUserRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/auth/logout": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Logout",
-        "operationId": "logout_api_ui_auth_logout_post",
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          }
-        }
-      }
-    },
-    "/api/ui/auth/me": {
-      "get": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Me",
-        "operationId": "me_api_ui_auth_me_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CurrentUserRead"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/auth/password": {
-      "post": {
-        "tags": [
-          "auth"
-        ],
-        "summary": "Change Password",
-        "operationId": "change_password_api_ui_auth_password_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChangePasswordRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/preview/rules": {
-      "get": {
-        "tags": [
-          "preview"
-        ],
-        "summary": "List Rules",
-        "operationId": "list_rules_api_ui_preview_rules_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/RuleSummary"
-                  },
-                  "type": "array",
-                  "title": "Response List Rules Api Ui Preview Rules Get"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/preview": {
-      "post": {
-        "tags": [
-          "preview"
-        ],
-        "summary": "Preview",
-        "operationId": "preview_api_ui_preview_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreviewResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/calendars": {
-      "get": {
-        "tags": [
-          "calendars"
-        ],
-        "summary": "List Calendars",
-        "operationId": "list_calendars_api_ui_calendars_get",
-        "parameters": [
-          {
-            "name": "include_inactive",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false,
-              "title": "Include Inactive"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CalendarRead"
-                  },
-                  "title": "Response List Calendars Api Ui Calendars Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "calendars"
+          "Calendars"
         ],
         "summary": "Create Calendar",
-        "operationId": "create_calendar_api_ui_calendars_post",
+        "operationId": "createCalendar",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalendarWrite"
+                "$ref": "#/components/schemas/CreateCalendar"
               }
             }
           }
@@ -249,187 +33,134 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MutationResult"
+                  "$ref": "#/components/schemas/CalendarResponse"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/calendars/{calendar_key}": {
-      "get": {
-        "tags": [
-          "calendars"
-        ],
-        "summary": "Get Calendar",
-        "operationId": "get_calendar_api_ui_calendars__calendar_key__get",
-        "parameters": [
-          {
-            "name": "calendar_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Calendar Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CalendarRead"
-                }
-              }
-            }
+            },
+            "description": "Bad Request"
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "calendars"
-        ],
-        "summary": "Update Calendar",
-        "operationId": "update_calendar_api_ui_calendars__calendar_key__put",
-        "parameters": [
-          {
-            "name": "calendar_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Calendar Key"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CalendarWrite"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MutationResult"
-                }
-              }
-            }
+            },
+            "description": "Unauthorized"
           },
-          "422": {
-            "description": "Validation Error",
+          "403": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           }
         }
       },
-      "delete": {
-        "tags": [
-          "calendars"
-        ],
-        "summary": "Delete Calendar",
-        "operationId": "delete_calendar_api_ui_calendars__calendar_key__delete",
-        "parameters": [
-          {
-            "name": "calendar_key",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Calendar Key"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/MutationResult"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/calendars/{calendar_key}/dates": {
       "get": {
         "tags": [
-          "calendars"
+          "Calendars"
         ],
-        "summary": "List Calendar Dates",
-        "operationId": "list_calendar_dates_api_ui_calendars__calendar_key__dates_get",
+        "summary": "List Calendars",
+        "operationId": "listCalendars",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
-            "name": "calendar_key",
-            "in": "path",
-            "required": true,
+            "name": "limit",
+            "in": "query",
+            "required": false,
             "schema": {
               "type": "integer",
-              "title": "Calendar Key"
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
             }
           },
           {
-            "name": "year",
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2147483647,
+              "minimum": 1,
+              "default": 1,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "calendarName",
             "in": "query",
             "required": false,
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "string",
+                  "maxLength": 128
                 },
                 {
                   "type": "null"
                 }
               ],
-              "title": "Year"
+              "title": "Calendarname"
+            }
+          },
+          {
+            "name": "migrated",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Migrated"
             }
           }
         ],
@@ -439,43 +170,161 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/CalendarDateRead"
-                  },
-                  "title": "Response List Calendar Dates Api Ui Calendars  Calendar Key  Dates Get"
+                  "$ref": "#/components/schemas/CalendarPage"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           }
         }
       }
     },
-    "/api/ui/calendars/{calendar_key}/history": {
+    "/v1/calendars/uploadedCalendars": {
       "get": {
         "tags": [
-          "calendars"
+          "Calendars"
         ],
-        "summary": "Calendar History",
-        "operationId": "calendar_history_api_ui_calendars__calendar_key__history_get",
+        "summary": "Uploaded Calendars",
+        "operationId": "getUploadedCalendars",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UploadedCalendar"
+                  },
+                  "type": "array",
+                  "title": "Response Getuploadedcalendars"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/calendars/{calendar_name}": {
+      "get": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Get Calendar",
+        "operationId": "getCalendar",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
-            "name": "calendar_key",
+            "name": "calendar_name",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "title": "Calendar Key"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
             }
           }
         ],
@@ -485,43 +334,94 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AuditEntryRead"
-                  },
-                  "title": "Response Calendar History Api Ui Calendars  Calendar Key  History Get"
+                  "$ref": "#/components/schemas/CalendarResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
-            }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
           }
         }
       }
     },
-    "/api/ui/calendars/{calendar_key}/materialise": {
-      "post": {
+    "/v1/calendars/{calendar_name}/update": {
+      "patch": {
         "tags": [
-          "calendars"
+          "Calendars"
         ],
-        "summary": "Materialise",
-        "operationId": "materialise_api_ui_calendars__calendar_key__materialise_post",
+        "summary": "Update Calendar",
+        "operationId": "updateCalendar",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
-            "name": "calendar_key",
+            "name": "calendar_name",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "title": "Calendar Key"
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
             }
           }
         ],
@@ -530,7 +430,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MaterialiseRequest"
+                "$ref": "#/components/schemas/UpdateCalendar"
               }
             }
           }
@@ -541,21 +441,659 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "integer"
-                  },
-                  "title": "Response Materialise Api Ui Calendars  Calendar Key  Materialise Post"
+                  "$ref": "#/components/schemas/CalendarResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_name}/activate": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Activate Calendar",
+        "operationId": "activate_calendar_v1_calendars__calendar_name__activate_post",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_name}/deactivate": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Deactivate Calendar",
+        "operationId": "deactivate_calendar_v1_calendars__calendar_name__deactivate_post",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_name}/dates": {
+      "get": {
+        "tags": [
+          "Calendars",
+          "Airflow"
+        ],
+        "summary": "Get Dates",
+        "operationId": "getCalendarDates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
+            }
+          },
+          {
+            "name": "excludeCalendar",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Excludecalendar"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+                  },
+                  "title": "Response Getcalendardates"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/calendars/{calendar_name}/export": {
+      "get": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Export Calendar Dates",
+        "operationId": "exportCalendarDates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/v1/calendars/upload/verify": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Verify Calendar Upload",
+        "operationId": "verifyDates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "amend",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Amend"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadVerificationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data",
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "year"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "year": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}$"
+                      }
+                    }
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Single-column .xlsx workbook with YYYY-MM-DD date values."
+                  }
+                }
+              },
+              "encoding": {
+                "data": {
+                  "contentType": "application/json"
+                },
+                "file": {
+                  "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 }
               }
             }
@@ -563,13 +1101,184 @@
         }
       }
     },
-    "/api/ui/change-requests": {
+    "/v1/calendars/{calendar_name}/upload": {
+      "post": {
+        "tags": [
+          "Calendars"
+        ],
+        "summary": "Upload Calendar",
+        "operationId": "uploadCalendarDates",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "calendar_name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+              "title": "Calendar Name"
+            }
+          },
+          {
+            "name": "createOnly",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Createonly"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Bad Request"
+          },
+          "401": {
+            "headers": {
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Content Too Large"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unsupported Media Type"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "data",
+                  "file"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "data": {
+                    "type": "object",
+                    "required": [
+                      "year"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "year": {
+                        "type": "string",
+                        "pattern": "^[0-9]{4}$"
+                      }
+                    }
+                  },
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Single-column .xlsx workbook with YYYY-MM-DD date values."
+                  }
+                }
+              },
+              "encoding": {
+                "data": {
+                  "contentType": "application/json"
+                },
+                "file": {
+                  "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/run-history": {
       "get": {
         "tags": [
-          "calendars"
+          "Run history"
         ],
-        "summary": "List Pending",
-        "operationId": "list_pending_api_ui_change_requests_get",
+        "summary": "List Run History",
+        "description": "Return the latest demo record for each DAG and task.",
+        "operationId": "list_run_history_v1_run_history_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -577,10 +1286,10 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/ChangeRequestRead"
+                    "$ref": "#/components/schemas/RunHistoryRecord"
                   },
                   "type": "array",
-                  "title": "Response List Pending Api Ui Change Requests Get"
+                  "title": "Response List Run History V1 Run History Get"
                 }
               }
             }
@@ -588,93 +1297,25 @@
         }
       }
     },
-    "/api/ui/change-requests/{change_request_id}/approve": {
-      "post": {
+    "/v1/run-history/demo": {
+      "get": {
         "tags": [
-          "calendars"
+          "Run history"
         ],
-        "summary": "Approve",
-        "operationId": "approve_api_ui_change_requests__change_request_id__approve_post",
-        "parameters": [
-          {
-            "name": "change_request_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Change Request Id"
-            }
-          }
-        ],
+        "summary": "Get Demo Run History",
+        "description": "Return all generated demo records, including older and duplicate runs.",
+        "operationId": "get_demo_run_history_v1_run_history_demo_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ChangeRequestRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ui/change-requests/{change_request_id}/reject": {
-      "post": {
-        "tags": [
-          "calendars"
-        ],
-        "summary": "Reject",
-        "operationId": "reject_api_ui_change_requests__change_request_id__reject_post",
-        "parameters": [
-          {
-            "name": "change_request_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "title": "Change Request Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/RejectRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChangeRequestRead"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "items": {
+                    "$ref": "#/components/schemas/RunHistoryRecord"
+                  },
+                  "type": "array",
+                  "title": "Response Get Demo Run History V1 Run History Demo Get"
                 }
               }
             }
@@ -710,684 +1351,146 @@
   },
   "components": {
     "schemas": {
-      "AuditEntryRead": {
+      "CalendarPage": {
         "properties": {
-          "audit_key": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Audit Key"
+          "calendars": {
+            "items": {
+              "$ref": "#/components/schemas/CalendarResponse"
+            },
+            "type": "array",
+            "title": "Calendars"
           },
-          "entity": {
-            "type": "string",
-            "title": "Entity"
-          },
-          "entity_key": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Entity Key"
-          },
-          "action": {
-            "type": "string",
-            "title": "Action"
-          },
-          "old_value": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Old Value"
-          },
-          "new_value": {
-            "anyOf": [
-              {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "New Value"
-          },
-          "updated_by": {
-            "type": "string",
-            "title": "Updated By"
-          },
-          "updated_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "audit_key",
-          "entity",
-          "entity_key",
-          "action",
-          "old_value",
-          "new_value",
-          "updated_by",
-          "updated_at"
-        ],
-        "title": "AuditEntryRead"
-      },
-      "BoundaryPolicy": {
-        "type": "string",
-        "enum": [
-          "clamp",
-          "allow_overflow"
-        ],
-        "title": "BoundaryPolicy",
-        "description": "O-07. What happens when shifting pushes a date out of its own period."
-      },
-      "CalendarDateRead": {
-        "properties": {
-          "calendar_date": {
-            "type": "string",
-            "format": "date",
-            "title": "Calendar Date"
-          },
-          "shifted_from": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Shifted From"
-          },
-          "remarks": {
-            "type": "string",
-            "title": "Remarks"
-          }
-        },
-        "type": "object",
-        "required": [
-          "calendar_date",
-          "shifted_from",
-          "remarks"
-        ],
-        "title": "CalendarDateRead"
-      },
-      "CalendarKind": {
-        "type": "string",
-        "enum": [
-          "BUSINESS_DAYS",
-          "EXTENDED_RULE"
-        ],
-        "title": "CalendarKind"
-      },
-      "CalendarRead": {
-        "properties": {
-          "calendar_key": {
+          "page": {
             "type": "integer",
-            "title": "Calendar Key"
+            "title": "Page"
           },
-          "calendar_nm": {
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize"
+          },
+          "totalItems": {
+            "type": "integer",
+            "title": "Totalitems"
+          },
+          "totalPages": {
+            "type": "integer",
+            "title": "Totalpages"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calendars",
+          "page",
+          "pageSize",
+          "totalItems",
+          "totalPages"
+        ],
+        "title": "CalendarPage"
+      },
+      "CalendarResponse": {
+        "properties": {
+          "calendarName": {
             "type": "string",
-            "title": "Calendar Nm"
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "title": "Calendarname"
           },
-          "calendar_desc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Calendar Desc"
-          },
-          "kind": {
-            "$ref": "#/components/schemas/CalendarKind"
-          },
-          "weekdays": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weekdays"
-          },
-          "rule_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rule Name"
-          },
-          "rule_params": {
-            "additionalProperties": {
-              "type": "integer"
+          "dates": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
             },
-            "type": "object",
-            "title": "Rule Params"
+            "type": "array",
+            "title": "Dates"
           },
-          "policies": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "type": "object",
-            "title": "Policies"
-          },
-          "holiday_calendar_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Holiday Calendar Id"
-          },
-          "active_flag": {
+          "migrated": {
             "type": "boolean",
-            "title": "Active Flag"
+            "title": "Migrated"
           },
-          "created_by": {
+          "uploaded": {
+            "type": "boolean",
+            "title": "Uploaded"
+          },
+          "status": {
             "type": "string",
-            "title": "Created By"
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "title": "Status"
+          },
+          "createdBy": {
+            "type": "string",
+            "title": "Createdby"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updatedat"
           }
         },
         "type": "object",
         "required": [
-          "calendar_key",
-          "calendar_nm",
-          "calendar_desc",
-          "kind",
-          "weekdays",
-          "rule_name",
-          "rule_params",
-          "policies",
-          "holiday_calendar_id",
-          "active_flag",
-          "created_by"
+          "calendarName",
+          "dates",
+          "migrated",
+          "uploaded",
+          "status",
+          "createdBy",
+          "createdAt",
+          "updatedAt"
         ],
-        "title": "CalendarRead"
+        "title": "CalendarResponse"
       },
-      "CalendarWrite": {
+      "CreateCalendar": {
         "properties": {
-          "calendar_nm": {
+          "calendarName": {
             "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Calendar Nm"
+            "pattern": "^[A-Za-z0-9]{1,70}$",
+            "title": "Calendarname"
           },
-          "calendar_desc": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Calendar Desc"
-          },
-          "weekdays": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/Weekday"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Weekdays"
-          },
-          "rule_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Rule Name"
-          },
-          "rule_params": {
-            "additionalProperties": {
-              "type": "integer"
+          "dates": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
             },
-            "type": "object",
-            "title": "Rule Params"
-          },
-          "policies": {
-            "$ref": "#/components/schemas/PoliciesIn"
-          },
-          "holiday_calendar_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Holiday Calendar Id"
-          },
-          "bu_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bu Id"
-          },
-          "app_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "App Id"
+            "type": "array",
+            "title": "Dates",
+            "default": []
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
-          "calendar_nm"
+          "calendarName"
         ],
-        "title": "CalendarWrite"
+        "title": "CreateCalendar"
       },
-      "ChangePasswordRequest": {
+      "ErrorResponse": {
         "properties": {
-          "current_password": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Current Password"
-          },
-          "new_password": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "New Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "current_password",
-          "new_password"
-        ],
-        "title": "ChangePasswordRequest"
-      },
-      "ChangeRequestRead": {
-        "properties": {
-          "change_request_id": {
-            "type": "integer",
-            "title": "Change Request Id"
-          },
-          "entity": {
-            "type": "string",
-            "title": "Entity"
-          },
-          "entity_key": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Entity Key"
-          },
-          "action": {
-            "type": "string",
-            "title": "Action"
-          },
           "status": {
             "type": "string",
             "title": "Status"
           },
-          "maker": {
+          "error": {
             "type": "string",
-            "title": "Maker"
+            "title": "Error"
           },
-          "made_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Made At"
-          },
-          "checker": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Checker"
-          },
-          "checked_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Checked At"
-          },
-          "reject_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reject Reason"
-          },
-          "payload": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Payload"
-          }
-        },
-        "type": "object",
-        "required": [
-          "change_request_id",
-          "entity",
-          "entity_key",
-          "action",
-          "status",
-          "maker",
-          "made_at",
-          "checker",
-          "checked_at",
-          "reject_reason",
-          "payload"
-        ],
-        "title": "ChangeRequestRead"
-      },
-      "CollisionPolicy": {
-        "type": "string",
-        "enum": [
-          "merge",
-          "shift_again"
-        ],
-        "title": "CollisionPolicy",
-        "description": "O-06. What happens when a shifted date lands on a date already scheduled."
-      },
-      "CurrentUserRead": {
-        "properties": {
-          "user_name": {
+          "message": {
             "type": "string",
-            "title": "User Name"
+            "title": "Message"
           },
-          "roles": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Roles"
-          },
-          "must_change_password": {
-            "type": "boolean",
-            "title": "Must Change Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_name",
-          "roles",
-          "must_change_password"
-        ],
-        "title": "CurrentUserRead"
-      },
-      "ExtendedRuleIn": {
-        "properties": {
-          "rule_name": {
-            "type": "string",
-            "title": "Rule Name"
-          },
-          "params": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "Params"
-          }
-        },
-        "type": "object",
-        "required": [
-          "rule_name"
-        ],
-        "title": "ExtendedRuleIn"
-      },
-      "HTTPValidationError": {
-        "properties": {
-          "detail": {
-            "items": {
-              "$ref": "#/components/schemas/ValidationError"
-            },
-            "type": "array",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "title": "HTTPValidationError"
-      },
-      "HolidayIn": {
-        "properties": {
-          "day": {
-            "type": "string",
-            "format": "date",
-            "title": "Day"
-          },
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "day"
-        ],
-        "title": "HolidayIn"
-      },
-      "HolidayPolicy": {
-        "type": "string",
-        "enum": [
-          "shift_forward",
-          "shift_backward",
-          "skip"
-        ],
-        "title": "HolidayPolicy",
-        "description": "What happens when a scheduled date falls on a holiday."
-      },
-      "LoginRequest": {
-        "properties": {
-          "user_name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "User Name"
-          },
-          "password": {
-            "type": "string",
-            "maxLength": 256,
-            "minLength": 1,
-            "title": "Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "user_name",
-          "password"
-        ],
-        "title": "LoginRequest"
-      },
-      "MaterialiseRequest": {
-        "properties": {
-          "years": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "minItems": 1,
-            "title": "Years"
-          }
-        },
-        "type": "object",
-        "required": [
-          "years"
-        ],
-        "title": "MaterialiseRequest"
-      },
-      "MutationResult": {
-        "properties": {
-          "applied": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CalendarRead"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "change_request": {
-            "$ref": "#/components/schemas/ChangeRequestRead"
-          }
-        },
-        "type": "object",
-        "required": [
-          "applied",
-          "change_request"
-        ],
-        "title": "MutationResult",
-        "description": "Either the applied calendar, or the pending request awaiting a second pair of eyes."
-      },
-      "PoliciesIn": {
-        "properties": {
-          "holiday": {
-            "$ref": "#/components/schemas/HolidayPolicy",
-            "default": "shift_forward"
-          },
-          "collision": {
-            "$ref": "#/components/schemas/CollisionPolicy",
-            "default": "merge"
-          },
-          "boundary": {
-            "$ref": "#/components/schemas/BoundaryPolicy",
-            "default": "clamp"
-          }
-        },
-        "type": "object",
-        "title": "PoliciesIn"
-      },
-      "PreviewDate": {
-        "properties": {
-          "day": {
-            "type": "string",
-            "format": "date",
-            "title": "Day"
-          },
-          "shifted_from": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Shifted From"
-          },
-          "reason": {
-            "type": "string",
-            "title": "Reason",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "day"
-        ],
-        "title": "PreviewDate"
-      },
-      "PreviewRequest": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name",
-            "default": "preview"
-          },
-          "year": {
-            "type": "integer",
-            "maximum": 2100.0,
-            "minimum": 2000.0,
-            "title": "Year"
-          },
-          "business_days": {
+          "details": {
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/Weekday"
+                  "$ref": "#/components/schemas/ValidationErrorDetail"
                 },
                 "type": "array"
               },
@@ -1395,111 +1498,244 @@
                 "type": "null"
               }
             ],
-            "title": "Business Days"
-          },
-          "extended_rule": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/ExtendedRuleIn"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "policies": {
-            "$ref": "#/components/schemas/PoliciesIn"
-          },
-          "holidays": {
-            "items": {
-              "$ref": "#/components/schemas/HolidayIn"
-            },
-            "type": "array",
-            "title": "Holidays"
+            "title": "Details"
           }
         },
         "type": "object",
         "required": [
-          "year"
+          "status",
+          "error",
+          "message"
         ],
-        "title": "PreviewRequest"
+        "title": "ErrorResponse"
       },
-      "PreviewResponse": {
+      "RunHistoryRecord": {
         "properties": {
-          "name": {
+          "source": {
             "type": "string",
-            "title": "Name"
+            "title": "Source"
           },
+          "type": {
+            "type": "string",
+            "enum": [
+              "DAG",
+              "Task"
+            ],
+            "title": "Type"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "dag_id": {
+            "type": "string",
+            "title": "Dag Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Date"
+          },
+          "end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Date"
+          },
+          "elapsed_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Time"
+          },
+          "business_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "source",
+          "type",
+          "state",
+          "dag_id"
+        ],
+        "title": "RunHistoryRecord"
+      },
+      "UpdateCalendar": {
+        "properties": {
+          "calendarName": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "title": "Calendarname"
+          },
+          "dates": {
+            "items": {
+              "type": "string",
+              "pattern": "^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+            },
+            "type": "array",
+            "title": "Dates",
+            "default": []
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "INACTIVE"
+            ],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "calendarName",
+          "status"
+        ],
+        "title": "UpdateCalendar"
+      },
+      "UploadVerificationItem": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "value",
+          "date",
+          "valid",
+          "errors"
+        ],
+        "title": "UploadVerificationItem"
+      },
+      "UploadVerificationResponse": {
+        "properties": {
           "year": {
             "type": "integer",
             "title": "Year"
           },
-          "total": {
-            "type": "integer",
-            "title": "Total"
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
           },
-          "shifted_count": {
-            "type": "integer",
-            "title": "Shifted Count"
-          },
-          "by_month": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "type": "object",
-            "title": "By Month"
-          },
-          "dates": {
+          "items": {
             "items": {
-              "$ref": "#/components/schemas/PreviewDate"
+              "$ref": "#/components/schemas/UploadVerificationItem"
             },
             "type": "array",
-            "title": "Dates"
+            "title": "Items"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "year",
+          "valid",
+          "items",
+          "errors"
+        ],
+        "title": "UploadVerificationResponse"
+      },
+      "UploadedCalendar": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$",
+            "title": "Name"
+          },
+          "migrated": {
+            "type": "boolean",
+            "title": "Migrated"
           }
         },
         "type": "object",
         "required": [
           "name",
-          "year",
-          "total",
-          "shifted_count",
-          "by_month",
-          "dates"
+          "migrated"
         ],
-        "title": "PreviewResponse"
-      },
-      "RejectRequest": {
-        "properties": {
-          "reason": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "required": [
-          "reason"
-        ],
-        "title": "RejectRequest"
-      },
-      "RuleSummary": {
-        "properties": {
-          "rule_name": {
-            "type": "string",
-            "title": "Rule Name"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "rule_name",
-          "description"
-        ],
-        "title": "RuleSummary"
+        "title": "UploadedCalendar"
       },
       "ValidationError": {
         "properties": {
@@ -1541,19 +1777,29 @@
         ],
         "title": "ValidationError"
       },
-      "Weekday": {
-        "type": "integer",
-        "enum": [
-          0,
-          1,
-          2,
-          3,
-          4,
-          5,
-          6
+      "ValidationErrorDetail": {
+        "properties": {
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "field",
+          "message"
         ],
-        "title": "Weekday",
-        "description": "Matches datetime.date.weekday()."
+        "title": "ValidationErrorDetail"
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

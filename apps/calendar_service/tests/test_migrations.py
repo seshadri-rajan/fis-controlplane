@@ -7,9 +7,8 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from calendar_service.infra.database.management import ManagementBase
 from sqlalchemy import create_engine, inspect
-
-from calendar_service.infra.database.models import Base
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = SERVICE_ROOT / "alembic.ini"
@@ -28,20 +27,14 @@ def test_migration_head_matches_models(tmp_path):
     try:
         inspector = inspect(engine)
         migrated = set(inspector.get_table_names()) - {"alembic_version"}
-        assert migrated == set(Base.metadata.tables)
+        assert migrated == set(ManagementBase.metadata.tables)
 
         for table in sorted(migrated):
             migrated_columns = {c["name"] for c in inspector.get_columns(table)}
-            model_columns = {c.name for c in Base.metadata.tables[table].columns}
+            model_columns = {c.name for c in ManagementBase.metadata.tables[table].columns}
             assert migrated_columns == model_columns, table
+        assert inspector.get_pk_constraint("calendar_date")["constrained_columns"] == [
+            "calendar_id", "calendar_date"
+        ]
     finally:
         engine.dispose()
-
-
-def test_change_request_table_exists_from_the_first_migration():
-    """RECORD 11.3: the four-eyes gate must not be a later retrofit."""
-    assert "calendar_change_request" in Base.metadata.tables
-    constraints = {
-        c.name for c in Base.metadata.tables["calendar_change_request"].constraints if c.name
-    }
-    assert "ck_change_request_no_self_approval" in constraints

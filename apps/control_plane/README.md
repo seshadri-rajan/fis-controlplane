@@ -1,15 +1,31 @@
 # control_plane
 
-Central, read-only view of DAG runs across Business Units. Airflow listeners in each BU push
-metadata here.
+Legacy scaffold for the read-only view of DAG runs across Business Units. The backend is now
+one application: `calendar_service.main:app` serves both calendar and run-history APIs.
+This scaffold is not a separate running service and is not required in the pip installation.
+Airflow listeners are not yet connected; the current run-history endpoints return demo data only.
 
-Deliberately a **separate application** from `calendar_service`. Different data model, different
-write path, different failure profile. A noisy listener firehose must not be able to degrade the
-service that decides whether DAGs run.
+## Current demo API
+
+The read-only `GET /v1/run-history` endpoint returns the latest generated demo record per
+source/type/DAG/task. `GET /v1/run-history/demo` returns the complete generated demo feed.
+Neither endpoint reads persisted data; live ingestion and persistence are not implemented.
+These unauthenticated demo endpoints are for local development only and must not be exposed as a
+production service.
+
+From the repository root, after installing dependencies, start the shared backend:
+
+```powershell
+python.exe -m uvicorn calendar_service.main:app --host 127.0.0.1 --port 8000
+```
+
+OpenAPI docs are at <http://127.0.0.1:8000/docs>. The web app's Local Backend mode sends all
+`/v1` requests to this application. See [backend setup](../calendar_service/README.md).
 
 ## Layered structure
 
-Same clean-architecture layering and the same dependency rule as `calendar_service`:
+The unused scaffold retains the original proposed layering. Active run-history code is in
+`apps/calendar_service/src/calendar_service/api/v1/run_history.py`:
 
 ```
 src/control_plane/
@@ -22,7 +38,7 @@ src/control_plane/
 └── config/
 ```
 
-## The decision that must be made before this is built
+## The decision required before live ingestion is built
 
 **O-13 — ingestion delivery guarantee.** The requirements describe fire-and-forget Airflow
 listeners with no queue, outbox, retry or dead-letter path, *and* daily reconciliation is

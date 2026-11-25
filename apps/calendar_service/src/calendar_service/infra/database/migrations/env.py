@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlalchemy.pool import NullPool
 
 from calendar_service.config.settings import get_settings
-from calendar_service.infra.database.models import Base
+from calendar_service.infra.database.management import ManagementBase
 
 config = context.config
 if config.config_file_name is not None:
@@ -21,7 +21,7 @@ if config.config_file_name is not None:
 # An explicitly supplied URL wins, so tests can migrate a scratch database.
 if not config.get_main_option("sqlalchemy.url", ""):
     config.set_main_option("sqlalchemy.url", get_settings().db_url)
-target_metadata = Base.metadata
+target_metadata = ManagementBase.metadata
 
 
 def run_migrations_offline() -> None:

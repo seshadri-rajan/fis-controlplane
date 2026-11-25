@@ -83,3 +83,13 @@ npm install
 npm run dev
 npm run build
 ```
+
+In development, the navbar's **API mode** selector switches between **Mock** and
+**Local backend**. Mock mode uses MSW and the demo login. Local backend mode stops MSW, proxies
+all `/v1` APIs, including calendars and run history, to the single backend at
+`http://127.0.0.1:8000`. Start `calendar_service.main:app`; keep authentication disabled with
+`CALENDAR_AUTH_ENABLED=false`. This mode is local-development only and grants the local UI an
+ADMIN identity. Run history is generated demo data; metadata is not available from the backend.
+
+SSO through the Control Plane and AD-group-based Admin/View authorization remain deferred to the
+final phase; application-level user management is out of scope.

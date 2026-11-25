@@ -1,9 +1,4 @@
-"""Write the OpenAPI contract to docs/api/openapi.json.
-
-Published early and committed on purpose: under D-07 the /api/v1 surface is a cross-organisation
-contract, and Fidelity's network and integration planning depend on it. The web client also
-generates its types from this file, so it needs no running server.
-"""
+"""Export the Calendar Management API schema to docs/api/openapi.json."""
 
 from __future__ import annotations
 

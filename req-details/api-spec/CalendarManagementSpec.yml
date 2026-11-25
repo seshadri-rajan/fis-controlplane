@@ -12,6 +12,10 @@ info:
     strings (DD-MM-YYYY), without time or timezone components. Date arrays
     contain unique values and are returned in ascending order.
 
+    Calendar upload, amendment, activation, and deactivation are recorded in
+    the backend audit log. Audit records are internal; no audit-history
+    operation is exposed to the UI.
+
     Read operations are available to all authenticated roles. Calendar
     creation, update, and upload require EDITOR or ADMIN. Deletion requires
     ADMIN or EDITOR.
@@ -539,24 +543,52 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /calendars/{calendar_name}/upload:
+  /calendars/{calendar_name}/export:
     parameters:
       - $ref: '#/components/parameters/CalendarName'
 
+    get:
+      tags: [Calendar Dates]
+      operationId: exportCalendarDates
+      summary: Export all calendar dates as an Excel workbook
+      description: |
+        Returns every stored date for the selected calendar in ascending order.
+        The workbook has one `Calendar date` column and uses `YYYY-MM-DD` values.
+      responses:
+        '200':
+          description: Excel workbook containing all dates for the calendar.
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /calendars/upload/verify:
     post:
       tags: [Calendar Dates]
-      operationId: uploadCalendarDates
-      summary: Upload calendar dates from a CSV file
+      operationId: verifyDates
+      summary: Verify dates in an Excel upload before saving
       description: |
-        Requires EDITOR or ADMIN and an existing calendar.
-
-        Accepts a UTF-8 CSV file containing exactly one column with the header
-        date. Each subsequent record must contain one ISO 8601 full-date value
-        (YYYY-MM-DD). The maximum file size is 5 MiB (5,242,880 bytes).
-
-        Atomically replaces the stored dates without changing other calendar
-        fields. Duplicate or invalid dates cause the entire upload to fail.
-        A header-only CSV clears the dates array. An empty file is invalid.
+        Validates every date row in the workbook and returns a row-level valid
+        flag and errors. A verification result with valid=false must not be
+        uploaded. Dates before today are always invalid. Unless amend=true,
+        dates must be in the current or next calendar year.
+      parameters:
+        - in: query
+          name: amend
+          required: false
+          description: Allows future years already held by a calendar; ADMIN only.
+          schema:
+            type: boolean
+            default: false
       requestBody:
         required: true
         content:
@@ -564,17 +596,115 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [file]
+              required: [data, file]
               properties:
+                data:
+                  type: object
+                  required: [year]
+                  additionalProperties: false
+                  properties:
+                    year:
+                      type: string
+                      pattern: '^[0-9]{4}$'
                 file:
                   type: string
                   format: binary
-                  description: UTF-8 CSV file with a single date column.
+                  description: Single-column .xlsx workbook with YYYY-MM-DD date values.
             encoding:
+              data:
+                contentType: application/json
               file:
-                contentType: text/csv
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
         '200':
+          description: Row-by-row validation results; invalid rows are returned, not uploaded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadVerificationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '413':
+          description: Uploaded file exceeds the limit.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '415':
+          description: Request or uploaded file has an unsupported media type.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /calendars/{calendar_name}/upload:
+    parameters:
+      - $ref: '#/components/parameters/CalendarName'
+
+    post:
+      tags: [Calendar Dates]
+      operationId: uploadCalendarDates
+      summary: Upload calendar dates from an Excel workbook
+      description: |
+        Requires EDITOR or ADMIN. Creates the calendar if it does not exist;
+        newly created names must contain 1 to 70 letters or digits.
+
+        Accepts a JSON metadata part with a four-digit year and an .xlsx workbook.
+        The year must be the current or next calendar year. The workbook must
+        contain one worksheet, a single `Calendar date` column, and 1 to 366
+        text dates in `YYYY-MM-DD` format. Every date must be in the requested year.
+        The maximum file size is 5 MiB (5,242,880 bytes).
+
+        Atomically replaces the stored dates without changing other calendar
+        fields and marks the calendar as uploaded. Duplicate or invalid dates
+        cause the entire upload to fail. Successful uploads are recorded in the
+        backend audit log.
+      parameters:
+        - name: createOnly
+          in: query
+          required: false
+          description: |
+            When true, return 409 if the calendar name already exists. Use this
+            for create-from-file so a duplicate name cannot overwrite a calendar.
+            When false or omitted, upload to an existing calendar or create it if absent.
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [data, file]
+              properties:
+                data:
+                  type: object
+                  required: [year]
+                  additionalProperties: false
+                  properties:
+                    year:
+                      type: string
+                      pattern: '^[0-9]{4}$'
+                      example: '2027'
+                file:
+                  type: string
+                  format: binary
+                  description: Single-column .xlsx workbook with YYYY-MM-DD date values.
+            encoding:
+              data:
+                contentType: application/json
+              file:
+                contentType: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        '201':
           description: Dates replaced successfully; returns the updated calendar.
           content:
             application/json:
@@ -586,8 +716,12 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The calendar already exists and createOnly is true.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '413':
           description: Uploaded file exceeds the 5 MiB limit.
           content:
@@ -718,6 +852,46 @@ components:
       description: Unique calendar dates; responses are sorted ascending.
       items:
         $ref: '#/components/schemas/CalendarDate'
+
+    UploadVerificationResponse:
+      type: object
+      additionalProperties: false
+      required: [year, valid, items, errors]
+      properties:
+        year:
+          type: integer
+        valid:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UploadVerificationItem'
+        errors:
+          type: array
+          items:
+            type: string
+
+    UploadVerificationItem:
+      type: object
+      additionalProperties: false
+      required: [row, value, date, valid, errors]
+      properties:
+        row:
+          type: integer
+          minimum: 2
+        value:
+          type: string
+          nullable: true
+        date:
+          type: string
+          nullable: true
+          format: date
+        valid:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
       example:
         - '01-01-2027'
         - '25-12-2027'
@@ -1050,7 +1224,7 @@ components:
       description: |
         Malformed request or validation failure, including invalid dates,
         duplicate dates, invalid pagination, mismatched calendar names,
-        missing fields, or malformed CSV content.
+        missing fields, or malformed Excel workbook content.
       content:
         application/json:
           schema:

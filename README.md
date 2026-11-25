@@ -20,8 +20,8 @@ control plane.
 
 ## What we are building
 
-Three deliverables, not one. They have different users, different lifecycles and different
-deployment targets.
+Three functional deliverables. Calendar and metadata APIs share a single backend application;
+the Airflow plugin has a separate deployment target.
 
 | # | Deliverable | What it does | Who runs it |
 |---|-------------|--------------|-------------|
@@ -39,9 +39,9 @@ this repo — see [Rules that are not negotiable](#rules-that-are-not-negotiable
 ```
 fidility/
 ├── apps/                          Deployable applications
-│   ├── calendar_service/          FastAPI. The calendar system of record.
-│   ├── control_plane/             FastAPI. DAG-run metadata ingestion + read API.
-│   └── web/                       React SPA. UI for both services.
+│   ├── calendar_service/          FastAPI. Single backend: calendars + demo run history.
+│   ├── control_plane/             Legacy metadata scaffold; not a running service.
+│   └── web/                       React SPA. Calendar and metadata UI.
 │
 ├── packages/                      Shared / distributable libraries
 │   ├── calendar_core/             Pure date-rule engine. No I/O, no framework.
@@ -72,7 +72,8 @@ fidility/
 
 ## Architecture: layers and dependency direction
 
-`calendar_service` and `control_plane` follow clean architecture.
+The shared `calendar_service` backend follows clean architecture. `control_plane` remains an
+unused scaffold; no separate server is needed.
 
 ```
       api/  ──────►  domain/  ◄──────  infra/
@@ -141,10 +142,8 @@ These exist because they are cheap now and very expensive later. Each links to i
 ```powershell
 # From the repository root
 py -3.14 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip pytest pytest-asyncio
-.\.venv\Scripts\python.exe -m pip install -e packages/calendar_core
-.\.venv\Scripts\python.exe -m pip install "fastapi[standard]" pydantic-settings "sqlalchemy[asyncio]" aiosqlite alembic
-.\.venv\Scripts\python.exe -m pip install --no-deps -e apps/calendar_service
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
 npm install --prefix apps/web
 ```
@@ -156,8 +155,6 @@ npm install --prefix apps/web
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 ```
-
-Expect **103 passing**: 47 rule-engine tests and 56 service tests.
 
 ### Database
 
@@ -172,79 +169,33 @@ cd apps/calendar_service
 
 A test asserts the migration head matches the models, so the two cannot silently drift.
 
-### Create the first administrator
-
-Seeds the four roles, the rule catalogue and a holiday calendar, then creates an admin whose
-temporary password is printed **once**. Re-running is safe.
-
-```powershell
-.\.venv\Scripts\python.exe -m calendar_service.jobs.bootstrap --admin-user first.admin --admin-email you@example.com
-```
-
-Holidays are backend-managed by requirement, so they load from CSV rather than the UI:
-
-```powershell
-.\.venv\Scripts\python.exe -m calendar_service.jobs.load_holidays holidays.csv --calendar DEFAULT
-```
-
-### Populate the UI with something to look at
-
-There is no calendar editor yet (blocked on S-13), so a fresh database leaves the Calendars page
-empty. This creates four representative calendars plus US 2027 holidays, and is safe to re-run:
-
-```powershell
-.\.venv\Scripts\python.exe -m calendar_service.jobs.seed_demo
-```
-
-2028 is left unmaterialised on purpose so the date-cliff warning is visible.
-
-### Annual rollover and the date-cliff alert
-
-Calendar dates are materialised per year. A calendar that runs out of dates **stops scheduling
-silently**, so the coverage check exits non-zero and is meant to be wired to a monitor.
-
-```powershell
-.\.venv\Scripts\python.exe -m calendar_service.jobs.generate_year --year 2028
-.\.venv\Scripts\python.exe -m calendar_service.jobs.check_coverage --min-days-ahead 90
-```
-
 ### Run it locally
 
-Two terminals.
-
 ```powershell
-# Terminal 1 - API on http://127.0.0.1:8000
+$env:CALENDAR_AUTH_ENABLED = "false" # local development only
 .\.venv\Scripts\python.exe -m uvicorn calendar_service.main:app --host 127.0.0.1 --port 8000
 ```
 
-```powershell
-# Terminal 2 - UI on http://localhost:5173
-npm run dev --prefix apps/web
-```
-
-Then open <http://localhost:5173/preview>. Vite proxies `/api` to the API, so there is no CORS
-configuration and the dev setup matches production, where FastAPI serves the built frontend from
-the same origin.
-
 Interactive API docs are at <http://127.0.0.1:8000/docs>.
-
-> **Authentication is local username and password** (D-01); there is no SSO in this phase. Log in
-> at `POST /api/ui/auth/login` with the bootstrap credentials. The session cookie is `https_only`,
-> so over plain http set `CALENDAR_SESSION_COOKIE_SECURE=false` for local development.
->
-> `CALENDAR_SESSION_SECRET` must be set before deployment — unset falls back to a per-process key
-> that breaks across restarts and replicas (O-33).
+The same process serves calendar APIs and the generated demo run-history API at
+`/v1/run-history` (latest rows) and `/v1/run-history/demo` (full feed). No port-8001 service is
+needed. Run-history demo endpoints are unauthenticated and must not be exposed in production.
+For deployment and OAuth configuration, see [the calendar service README](apps/calendar_service/README.md).
+Run `npm run dev --prefix apps/web` in a second terminal and open <http://localhost:5173>.
+The web app uses `/v1`; paste an OAuth access token in the header when backend auth is enabled.
+The Airflow client has not been ported in this change.
 
 ### After changing the API
 
-Regenerate the contract and the frontend's types:
+Regenerate the backend OpenAPI artifact:
 
 ```powershell
 .\.venv\Scripts\python.exe apps/calendar_service/scripts/export_openapi.py
 npm run generate:api --prefix apps/web
 ```
 
-Both `docs/api/openapi.json` and `src/lib/api/schema.d.ts` are committed. Do not hand-edit either.
+Keep the runtime contract aligned with [CalendarManagementSpec.yml](CalendarManagementSpec.yml).
+Commit the generated backend schema and frontend types together.
 
 ### Build the frontend
 
@@ -272,7 +223,7 @@ See [TRACKER.md](TRACKER.md) for the full breakdown of done, pending and blocked
 |---|---|
 | `calendar_core` | Rule engine implemented, 47 tests passing. Extended rule set is **provisional** (O-28). |
 | `calendar_service` | Preview, calendar CRUD, materialisation, four-eyes gate, local authentication with RBAC, audit trail, annual rollover and the date-cliff alert. 56 tests. |
-| `control_plane` | Scaffolding only. Blocked on the O-13 ingestion decision. |
+| `control_plane` | Legacy scaffold only. Demo run-history APIs run in `calendar_service`; live ingestion remains blocked on the O-13 delivery decision. |
 | `web` | Preview, login, and calendar list/detail with dates and audit history. Editors blocked on S-13. |
 | `airflow_calendar_plugin` | Scaffolding only. Blocked on O-19. |
 

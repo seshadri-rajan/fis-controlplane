@@ -4,109 +4,7 @@
  */
 
 export interface paths {
-    "/api/ui/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Login */
-        post: operations["login_api_ui_auth_login_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Logout */
-        post: operations["logout_api_ui_auth_logout_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Me */
-        get: operations["me_api_ui_auth_me_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/auth/password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Change Password */
-        post: operations["change_password_api_ui_auth_password_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/preview/rules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Rules */
-        get: operations["list_rules_api_ui_preview_rules_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Preview */
-        post: operations["preview_api_ui_preview_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/calendars": {
+    "/v1/calendars": {
         parameters: {
             query?: never;
             header?: never;
@@ -114,17 +12,34 @@ export interface paths {
             cookie?: never;
         };
         /** List Calendars */
-        get: operations["list_calendars_api_ui_calendars_get"];
+        get: operations["listCalendars"];
         put?: never;
         /** Create Calendar */
-        post: operations["create_calendar_api_ui_calendars_post"];
+        post: operations["createCalendar"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/ui/calendars/{calendar_key}": {
+    "/v1/calendars/uploadedCalendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uploaded Calendars */
+        get: operations["getUploadedCalendars"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/calendars/{calendar_name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -132,52 +47,33 @@ export interface paths {
             cookie?: never;
         };
         /** Get Calendar */
-        get: operations["get_calendar_api_ui_calendars__calendar_key__get"];
+        get: operations["getCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/calendars/{calendar_name}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
         /** Update Calendar */
-        put: operations["update_calendar_api_ui_calendars__calendar_key__put"];
-        post?: never;
-        /** Delete Calendar */
-        delete: operations["delete_calendar_api_ui_calendars__calendar_key__delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
+        patch: operations["updateCalendar"];
         trace?: never;
     };
-    "/api/ui/calendars/{calendar_key}/dates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List Calendar Dates */
-        get: operations["list_calendar_dates_api_ui_calendars__calendar_key__dates_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/calendars/{calendar_key}/history": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Calendar History */
-        get: operations["calendar_history_api_ui_calendars__calendar_key__history_get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/ui/calendars/{calendar_key}/materialise": {
+    "/v1/calendars/{calendar_name}/activate": {
         parameters: {
             query?: never;
             header?: never;
@@ -186,23 +82,40 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Materialise */
-        post: operations["materialise_api_ui_calendars__calendar_key__materialise_post"];
+        /** Activate Calendar */
+        post: operations["activate_calendar_v1_calendars__calendar_name__activate_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/ui/change-requests": {
+    "/v1/calendars/{calendar_name}/deactivate": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List Pending */
-        get: operations["list_pending_api_ui_change_requests_get"];
+        get?: never;
+        put?: never;
+        /** Deactivate Calendar */
+        post: operations["deactivate_calendar_v1_calendars__calendar_name__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/calendars/{calendar_name}/dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Dates */
+        get: operations["getCalendarDates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -211,24 +124,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/ui/change-requests/{change_request_id}/approve": {
+    "/v1/calendars/{calendar_name}/export": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Export Calendar Dates */
+        get: operations["exportCalendarDates"];
         put?: never;
-        /** Approve */
-        post: operations["approve_api_ui_change_requests__change_request_id__approve_post"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/ui/change-requests/{change_request_id}/reject": {
+    "/v1/calendars/upload/verify": {
         parameters: {
             query?: never;
             header?: never;
@@ -237,8 +150,65 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Reject */
-        post: operations["reject_api_ui_change_requests__change_request_id__reject_post"];
+        /** Verify Calendar Upload */
+        post: operations["verifyDates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/calendars/{calendar_name}/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Upload Calendar */
+        post: operations["uploadCalendarDates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/run-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Run History
+         * @description Return the latest demo record for each DAG and task.
+         */
+        get: operations["list_run_history_v1_run_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/run-history/demo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Demo Run History
+         * @description Return all generated demo records, including older and duplicate runs.
+         */
+        get: operations["get_demo_run_history_v1_run_history_demo_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -266,272 +236,137 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AuditEntryRead */
-        AuditEntryRead: {
-            /** Audit Key */
-            audit_key: number | null;
-            /** Entity */
-            entity: string;
-            /** Entity Key */
-            entity_key: number | null;
-            /** Action */
-            action: string;
-            /** Old Value */
-            old_value: {
-                [key: string]: unknown;
-            } | null;
-            /** New Value */
-            new_value: {
-                [key: string]: unknown;
-            } | null;
-            /** Updated By */
-            updated_by: string;
-            /** Updated At */
-            updated_at: string | null;
+        /** CalendarPage */
+        CalendarPage: {
+            /** Calendars */
+            calendars: components["schemas"]["CalendarResponse"][];
+            /** Page */
+            page: number;
+            /** Pagesize */
+            pageSize: number;
+            /** Totalitems */
+            totalItems: number;
+            /** Totalpages */
+            totalPages: number;
         };
-        /**
-         * BoundaryPolicy
-         * @description O-07. What happens when shifting pushes a date out of its own period.
-         * @enum {string}
-         */
-        BoundaryPolicy: "clamp" | "allow_overflow";
-        /** CalendarDateRead */
-        CalendarDateRead: {
+        /** CalendarResponse */
+        CalendarResponse: {
+            /** Calendarname */
+            calendarName: string;
+            /** Dates */
+            dates: string[];
+            /** Migrated */
+            migrated: boolean;
+            /** Uploaded */
+            uploaded: boolean;
             /**
-             * Calendar Date
-             * Format: date
+             * Status
+             * @enum {string}
              */
-            calendar_date: string;
-            /** Shifted From */
-            shifted_from: string | null;
-            /** Remarks */
-            remarks: string;
+            status: "ACTIVE" | "INACTIVE";
+            /** Createdby */
+            createdBy: string;
+            /**
+             * Createdat
+             * Format: date-time
+             */
+            createdAt: string;
+            /**
+             * Updatedat
+             * Format: date-time
+             */
+            updatedAt: string;
         };
-        /**
-         * CalendarKind
-         * @enum {string}
-         */
-        CalendarKind: "BUSINESS_DAYS" | "EXTENDED_RULE";
-        /** CalendarRead */
-        CalendarRead: {
-            /** Calendar Key */
-            calendar_key: number;
-            /** Calendar Nm */
-            calendar_nm: string;
-            /** Calendar Desc */
-            calendar_desc: string | null;
-            kind: components["schemas"]["CalendarKind"];
-            /** Weekdays */
-            weekdays: number[] | null;
-            /** Rule Name */
-            rule_name: string | null;
-            /** Rule Params */
-            rule_params: {
-                [key: string]: number;
-            };
-            /** Policies */
-            policies: {
-                [key: string]: string;
-            };
-            /** Holiday Calendar Id */
-            holiday_calendar_id: number | null;
-            /** Active Flag */
-            active_flag: boolean;
-            /** Created By */
-            created_by: string;
+        /** CreateCalendar */
+        CreateCalendar: {
+            /** Calendarname */
+            calendarName: string;
+            /**
+             * Dates
+             * @default []
+             */
+            dates: string[];
         };
-        /** CalendarWrite */
-        CalendarWrite: {
-            /** Calendar Nm */
-            calendar_nm: string;
-            /** Calendar Desc */
-            calendar_desc?: string | null;
-            /** Weekdays */
-            weekdays?: components["schemas"]["Weekday"][] | null;
-            /** Rule Name */
-            rule_name?: string | null;
-            /** Rule Params */
-            rule_params?: {
-                [key: string]: number;
-            };
-            policies?: components["schemas"]["PoliciesIn"];
-            /** Holiday Calendar Id */
-            holiday_calendar_id?: number | null;
-            /** Bu Id */
-            bu_id?: number | null;
-            /** App Id */
-            app_id?: number | null;
-        };
-        /** ChangePasswordRequest */
-        ChangePasswordRequest: {
-            /** Current Password */
-            current_password: string;
-            /** New Password */
-            new_password: string;
-        };
-        /** ChangeRequestRead */
-        ChangeRequestRead: {
-            /** Change Request Id */
-            change_request_id: number;
-            /** Entity */
-            entity: string;
-            /** Entity Key */
-            entity_key: number | null;
-            /** Action */
-            action: string;
+        /** ErrorResponse */
+        ErrorResponse: {
             /** Status */
             status: string;
-            /** Maker */
-            maker: string;
-            /** Made At */
-            made_at: string | null;
-            /** Checker */
-            checker: string | null;
-            /** Checked At */
-            checked_at: string | null;
-            /** Reject Reason */
-            reject_reason: string | null;
-            /** Payload */
-            payload: {
-                [key: string]: unknown;
-            };
+            /** Error */
+            error: string;
+            /** Message */
+            message: string;
+            /** Details */
+            details?: components["schemas"]["ValidationErrorDetail"][] | null;
         };
-        /**
-         * CollisionPolicy
-         * @description O-06. What happens when a shifted date lands on a date already scheduled.
-         * @enum {string}
-         */
-        CollisionPolicy: "merge" | "shift_again";
-        /** CurrentUserRead */
-        CurrentUserRead: {
-            /** User Name */
-            user_name: string;
-            /** Roles */
-            roles: string[];
-            /** Must Change Password */
-            must_change_password: boolean;
-        };
-        /** ExtendedRuleIn */
-        ExtendedRuleIn: {
-            /** Rule Name */
-            rule_name: string;
-            /** Params */
-            params?: {
-                [key: string]: number;
-            };
-        };
-        /** HTTPValidationError */
-        HTTPValidationError: {
-            /** Detail */
-            detail?: components["schemas"]["ValidationError"][];
-        };
-        /** HolidayIn */
-        HolidayIn: {
+        /** RunHistoryRecord */
+        RunHistoryRecord: {
+            /** Source */
+            source: string;
             /**
-             * Day
-             * Format: date
+             * Type
+             * @enum {string}
              */
-            day: string;
+            type: "DAG" | "Task";
+            /** State */
+            state: string;
+            /** Dag Id */
+            dag_id: string;
+            /** Task Id */
+            task_id?: string | null;
+            /** Start Date */
+            start_date?: string | null;
+            /** End Date */
+            end_date?: string | null;
+            /** Elapsed Time */
+            elapsed_time?: string | null;
+            /** Business Date */
+            business_date?: string | null;
+        };
+        /** UpdateCalendar */
+        UpdateCalendar: {
+            /** Calendarname */
+            calendarName: string;
             /**
-             * Name
-             * @default
+             * Dates
+             * @default []
              */
-            name: string;
-        };
-        /**
-         * HolidayPolicy
-         * @description What happens when a scheduled date falls on a holiday.
-         * @enum {string}
-         */
-        HolidayPolicy: "shift_forward" | "shift_backward" | "skip";
-        /** LoginRequest */
-        LoginRequest: {
-            /** User Name */
-            user_name: string;
-            /** Password */
-            password: string;
-        };
-        /** MaterialiseRequest */
-        MaterialiseRequest: {
-            /** Years */
-            years: number[];
-        };
-        /**
-         * MutationResult
-         * @description Either the applied calendar, or the pending request awaiting a second pair of eyes.
-         */
-        MutationResult: {
-            applied: components["schemas"]["CalendarRead"] | null;
-            change_request: components["schemas"]["ChangeRequestRead"];
-        };
-        /** PoliciesIn */
-        PoliciesIn: {
-            /** @default shift_forward */
-            holiday: components["schemas"]["HolidayPolicy"];
-            /** @default merge */
-            collision: components["schemas"]["CollisionPolicy"];
-            /** @default clamp */
-            boundary: components["schemas"]["BoundaryPolicy"];
-        };
-        /** PreviewDate */
-        PreviewDate: {
+            dates: string[];
             /**
-             * Day
-             * Format: date
+             * Status
+             * @enum {string}
              */
-            day: string;
-            /** Shifted From */
-            shifted_from?: string | null;
-            /**
-             * Reason
-             * @default
-             */
-            reason: string;
+            status: "ACTIVE" | "INACTIVE";
         };
-        /** PreviewRequest */
-        PreviewRequest: {
-            /**
-             * Name
-             * @default preview
-             */
-            name: string;
+        /** UploadVerificationItem */
+        UploadVerificationItem: {
+            /** Row */
+            row: number;
+            /** Value */
+            value: string | null;
+            /** Date */
+            date: string | null;
+            /** Valid */
+            valid: boolean;
+            /** Errors */
+            errors: string[];
+        };
+        /** UploadVerificationResponse */
+        UploadVerificationResponse: {
             /** Year */
             year: number;
-            /** Business Days */
-            business_days?: components["schemas"]["Weekday"][] | null;
-            extended_rule?: components["schemas"]["ExtendedRuleIn"] | null;
-            policies?: components["schemas"]["PoliciesIn"];
-            /** Holidays */
-            holidays?: components["schemas"]["HolidayIn"][];
+            /** Valid */
+            valid: boolean;
+            /** Items */
+            items: components["schemas"]["UploadVerificationItem"][];
+            /** Errors */
+            errors: string[];
         };
-        /** PreviewResponse */
-        PreviewResponse: {
+        /** UploadedCalendar */
+        UploadedCalendar: {
             /** Name */
             name: string;
-            /** Year */
-            year: number;
-            /** Total */
-            total: number;
-            /** Shifted Count */
-            shifted_count: number;
-            /** By Month */
-            by_month: {
-                [key: string]: number;
-            };
-            /** Dates */
-            dates: components["schemas"]["PreviewDate"][];
-        };
-        /** RejectRequest */
-        RejectRequest: {
-            /** Reason */
-            reason: string;
-        };
-        /** RuleSummary */
-        RuleSummary: {
-            /** Rule Name */
-            rule_name: string;
-            /** Description */
-            description: string;
+            /** Migrated */
+            migrated: boolean;
         };
         /** ValidationError */
         ValidationError: {
@@ -546,12 +381,13 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
-        /**
-         * Weekday
-         * @description Matches datetime.date.weekday().
-         * @enum {integer}
-         */
-        Weekday: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+        /** ValidationErrorDetail */
+        ValidationErrorDetail: {
+            /** Field */
+            field: string;
+            /** Message */
+            message: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -561,165 +397,13 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    login_api_ui_auth_login_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CurrentUserRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    logout_api_ui_auth_logout_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    me_api_ui_auth_me_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CurrentUserRead"];
-                };
-            };
-        };
-    };
-    change_password_api_ui_auth_password_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangePasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_rules_api_ui_preview_rules_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RuleSummary"][];
-                };
-            };
-        };
-    };
-    preview_api_ui_preview_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PreviewResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_calendars_api_ui_calendars_get: {
+    listCalendars: {
         parameters: {
             query?: {
-                include_inactive?: boolean;
+                limit?: number;
+                offset?: number;
+                calendarName?: string | null;
+                migrated?: boolean | null;
             };
             header?: never;
             path?: never;
@@ -733,21 +417,49 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CalendarRead"][];
+                    "application/json": components["schemas"]["CalendarPage"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
     };
-    create_calendar_api_ui_calendars_post: {
+    createCalendar: {
         parameters: {
             query?: never;
             header?: never;
@@ -756,7 +468,671 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CalendarWrite"];
+                "application/json": components["schemas"]["CreateCalendar"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getUploadedCalendars: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadedCalendar"][];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    updateCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCalendar"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    activate_calendar_v1_calendars__calendar_name__activate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    deactivate_calendar_v1_calendars__calendar_name__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    getCalendarDates: {
+        parameters: {
+            query?: {
+                excludeCalendar?: string | null;
+            };
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    exportCalendarDates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    verifyDates: {
+        parameters: {
+            query?: {
+                amend?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    data: {
+                        year: string;
+                    };
+                    /**
+                     * Format: binary
+                     * @description Single-column .xlsx workbook with YYYY-MM-DD date values.
+                     */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadVerificationResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    uploadCalendarDates: {
+        parameters: {
+            query?: {
+                createOnly?: boolean;
+            };
+            header?: never;
+            path: {
+                calendar_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    data: {
+                        year: string;
+                    };
+                    /**
+                     * Format: binary
+                     * @description Single-column .xlsx workbook with YYYY-MM-DD date values.
+                     */
+                    file: string;
+                };
             };
         };
         responses: {
@@ -766,219 +1142,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MutationResult"];
+                    "application/json": components["schemas"]["CalendarResponse"];
                 };
             };
-            /** @description Validation Error */
-            422: {
+            /** @description Bad Request */
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    "WWW-Authenticate"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
     };
-    get_calendar_api_ui_calendars__calendar_key__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalendarRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    update_calendar_api_ui_calendars__calendar_key__put: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CalendarWrite"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MutationResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    delete_calendar_api_ui_calendars__calendar_key__delete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MutationResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_calendar_dates_api_ui_calendars__calendar_key__dates_get: {
-        parameters: {
-            query?: {
-                year?: number | null;
-            };
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CalendarDateRead"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    calendar_history_api_ui_calendars__calendar_key__history_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuditEntryRead"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    materialise_api_ui_calendars__calendar_key__materialise_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                calendar_key: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MaterialiseRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: number;
-                    };
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    list_pending_api_ui_change_requests_get: {
+    list_run_history_v1_run_history_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -993,18 +1226,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChangeRequestRead"][];
+                    "application/json": components["schemas"]["RunHistoryRecord"][];
                 };
             };
         };
     };
-    approve_api_ui_change_requests__change_request_id__approve_post: {
+    get_demo_run_history_v1_run_history_demo_get: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                change_request_id: number;
-            };
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -1015,51 +1246,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ChangeRequestRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    reject_api_ui_change_requests__change_request_id__reject_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                change_request_id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RejectRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ChangeRequestRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["RunHistoryRecord"][];
                 };
             };
         };

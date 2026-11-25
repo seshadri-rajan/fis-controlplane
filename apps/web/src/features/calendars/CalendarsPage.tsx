@@ -2,7 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 
-import { getCalendarDates, listCalendars, setCalendarActive } from "../../lib/api/client";
+import {
+  downloadCalendarExcel,
+  getCalendarDates,
+  listCalendars,
+  setCalendarActive,
+} from "../../lib/api/client";
 import type { ApiError, SpecCalendar } from "../../lib/api/client";
 import { isActive } from "../../lib/api/proposed";
 import { useAuth } from "../auth/AuthProvider";
@@ -82,10 +87,13 @@ export default function CalendarsPage() {
     },
   });
 
+  const exportCalendar = useMutation({ mutationFn: downloadCalendarExcel });
+
   const current = calendars.data?.find((c) => c.calendarName === selected) ?? null;
-  // Amending needs EDITOR; changing a calendar's status is ADMIN only (has() treats ADMIN as a superset).
-  const canAmend = has("EDITOR");
-  const canToggle = has("ADMIN");
+  // Lifecycle actions are available to admins for uploaded and migrated calendars only.
+  const canManageCurrent = !!current && kindOf(current) !== null;
+  const canAmend = canManageCurrent && has("ADMIN");
+  const canToggle = canManageCurrent && has("ADMIN");
 
   const counts = useMemo(() => {
     const result: Record<Filter, number> = {
@@ -195,6 +203,7 @@ export default function CalendarsPage() {
                       setYearChoice(null);
                       setConfirming(false);
                       toggleActive.reset();
+                      exportCalendar.reset();
                     }}
                     className={`w-full rounded-lg border p-3 text-left ${
                       name === selected
@@ -286,7 +295,21 @@ export default function CalendarsPage() {
                     )}
                   </div>
                 )}
+                <button
+                  type="button"
+                  disabled={exportCalendar.isPending}
+                  onClick={() => exportCalendar.mutate(current.calendarName ?? "")}
+                  className="ml-auto rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+                >
+                  {exportCalendar.isPending ? "Preparing Excel…" : "Export all dates"}
+                </button>
               </div>
+
+              {exportCalendar.isError && (
+                <p role="alert" className="mt-3 rounded-md bg-rose-50 p-2 text-sm text-rose-800">
+                  {(exportCalendar.error as Error).message}
+                </p>
+              )}
 
               {!isActive(current) && (
                 <p className="mt-2 text-xs text-slate-500">
