@@ -8,7 +8,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
 
 NAME_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$"
 NEW_NAME_PATTERN = r"^[A-Za-z0-9]{1,70}$"
-DATE_PATTERN = r"^[0-9]{2}-[0-9]{2}-[0-9]{4}$"
+DATE_PATTERN = r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
 CalendarName = Annotated[str, StringConstraints(min_length=1, max_length=128, pattern=NAME_PATTERN)]
 NewCalendarName = Annotated[str, StringConstraints(pattern=NEW_NAME_PATTERN)]
 CalendarStatus = Literal["ACTIVE", "INACTIVE"]
@@ -16,16 +16,16 @@ CalendarStatus = Literal["ACTIVE", "INACTIVE"]
 
 def parse_date(value: str) -> date:
     if not re.fullmatch(DATE_PATTERN, value):
-        raise ValueError("Must be a valid date in DD-MM-YYYY format.")
-    day, month, year = map(int, value.split("-"))
+        raise ValueError("Must be a valid date in YYYY-MM-DD format.")
+    year, month, day = map(int, value.split("-"))
     try:
         return date(year, month, day)
     except ValueError as exc:
-        raise ValueError("Must be a valid date in DD-MM-YYYY format.") from exc
+        raise ValueError("Must be a valid date in YYYY-MM-DD format.") from exc
 
 
 def format_date(day: date) -> str:
-    return f"{day.day:02d}-{day.month:02d}-{day.year:04d}"
+    return f"{day.year:04d}-{day.month:02d}-{day.day:02d}"
 
 
 def validate_dates(values: list[str]) -> list[str]:

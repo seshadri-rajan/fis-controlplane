@@ -250,65 +250,8 @@ async def get_dates(
     exclude_calendar: Annotated[CalendarName | None, Query(alias="excludeCalendar")] = None,
 ) -> list[CalendarDate]:
     repository = ManagedCalendarRepository(session)
-    row = await _find(repository, calendar_name)
-    dates = {entry.calendar_date for entry in row.dates}
-    if exclude_calendar is not None:
-        if exclude_calendar == calendar_name:
-            return []
-        excluded = await _find(repository, exclude_calendar)
-        dates.difference_update(entry.calendar_date for entry in excluded.dates)
-    return [format_date(day) for day in sorted(dates)]
-
-
-@router.get(
-    "/{calendar_name}/export",
-    operation_id="exportCalendarDates",
-    responses={
-        **NOT_FOUND,
-        200: {
-            "content": {
-                XLSX_MEDIA_TYPE: {
-                    "schema": {"type": "string", "format": "binary"},
-                },
-            },
-        },
-    },
-    dependencies=READ_ACCESS,
-)
-async def export_calendar_dates(calendar_name: CalendarName, session: SessionDep) -> Response:
-    row = await _find(ManagedCalendarRepository(session), calendar_name)
-    workbook = Workbook(write_only=True)
-    sheet = workbook.create_sheet("Calendar dates")
-    sheet.append(["Calendar date"])
-    for entry in sorted(row.dates, key=lambda item: item.calendar_date):
-        sheet.append([entry.calendar_date.isoformat()])
-    output = BytesIO()
-    workbook.save(output)
-    return Response(
-        content=output.getvalue(),
-        media_type=XLSX_MEDIA_TYPE,
-        headers={"Content-Disposition": f'attachment; filename="{calendar_name}.xlsx"'},
-    )
-
-
-@router.post(
-    "/upload/verify",
-    operation_id="verifyDates",
-    responses={
-        413: {"model": ErrorResponse},
-        415: {"model": ErrorResponse},
-    },
-    openapi_extra=UPLOAD_BODY,
-)
-async def verify_calendar_upload(
-    request: Request,
-    user: EditorDep,
-    settings: SettingsDep,
-    amend: Annotated[bool, Query()] = False,
-) -> UploadVerificationResponse:
-    if amend and "ADMIN" not in user.roles:
-        raise HTTPException(403, "Verifying amendment files requires ADMIN.")
-    return await verify_upload(request, settings.upload_max_bytes, amend=amend)
+    row = await repository.get_run_dates(calendar_name, exclude_calendar);
+    return sorted(formatf_date(day) for day in row)
 
 
 @router.post(

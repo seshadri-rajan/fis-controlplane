@@ -1,14 +1,3 @@
-"""Persistence for the date-only management contract."""
-
-from __future__ import annotations
-
-from datetime import UTC, date, datetime
-
-from sqlalchemy import (
-    CHAR,
-    DateTime,
-    ForeignKey,
-    Identity,
     String,
     delete,
     func,
@@ -115,6 +104,14 @@ class ManagedCalendarRepository:
         )
         return list(rows)
 
+    async def get_run_dates(self, run_calendar: str, exclude_calendar: str) -> list[date]:
+        """Return the dates produced by the database's get_run_dates function."""
+        rows = await self.session.scalars(
+            text("SELECT * FROM controlplane.get_run_dates(:run_calendar, :exclude_calendar)"),
+            {"run_calendar": run_calendar, "exclude_calendar": exclude_calendar},
+        )
+        return list(rows)
+
     async def replace_dates(
         self, calendar: ManagedCalendar, dates: list[date], *, year: int | None = None
     ) -> list[date]:
@@ -160,7 +157,3 @@ class ManagedCalendarRepository:
                 resource_type="CALENDAR",
                 resource_name=calendar.calendar_name,
                 action=action,
-                performed_by=actor,
-            )
-        )
-        await self.session.commit()
