@@ -26,4 +26,26 @@ CREATE TABLE audit_log (
     performed_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE OR REPLACE FUNCTION GET_RUN_DATES(
+    p_run_calendar varchar,
+    p_exclude_calendar varchar DEFAULT NULL
+)
+RETURNS TABLE(run_date date) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cd.calendar_date
+    FROM calendar_date cd
+    INNER JOIN calendar c ON cd.calendar_id = c.calendar_id
+    WHERE c.calendar_name = p_run_calendar
+    AND cd.calendar_date NOT IN (
+        SELECT cd2.calendar_date
+        FROM calendar_date cd2
+        INNER JOIN calendar c2 ON cd2.calendar_id = c2.calendar_id
+        WHERE c2.calendar_name = p_exclude_calendar
+        AND p_exclude_calendar IS NOT NULL
+    )
+    ORDER BY cd.calendar_date;
+END;
+$$ LANGUAGE plpgsql;
+
 COMMIT;
