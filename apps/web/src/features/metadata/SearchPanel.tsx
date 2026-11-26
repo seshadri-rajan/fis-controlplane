@@ -64,7 +64,7 @@ export default function SearchPanel({
     return parts.every((part, index) => {
       // At least 4 characters before the first *
       if (index === 0) {
-        return part.trim().length >= 4;
+        return part.trim().length >= 5;
       }
 
       return true;
@@ -225,7 +225,7 @@ export default function SearchPanel({
       {/* NEW WILDCARD ERROR */}
       {wildcardError && (
         <p className="mt-3 text-sm text-red-600 font-medium">
-          Please enter at least 4 characters before using wildcard (*).
+          Please enter at least 5 characters before using wildcard (*).
         </p>
       )}
       {showTooltip &&

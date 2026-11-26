@@ -20,6 +20,7 @@ export interface Dag {
   runId: string;
   applicationId:string;
   endTime: string;
+  criticality: string;
 }
 
 export interface Task {
@@ -105,6 +106,45 @@ export interface DagDependency {
 export interface DagDependencies {
     upstream: DagDependency[];
     downstream: DagDependency[];
+}
+
+export interface Dag1 {
+  source: string;
+  dag_id: string;
+  business_unit: string;
+  task_id: string;
+  task_status: string;
+  metadata: {
+    slo: string;
+    category: string;
+    severity: string;
+    critical_path: string;
+    support_group: string;
+    application_id: string;
+    bundel_name: string;
+  };
+
+  latest_run: {
+    run_id: string;
+    state: string;
+    logical_date: string;
+    start_date: string;
+    end_date: string;
+    elapsed_time: string;
+    business_date: string;
+    next_run: string;
+  };
+}
+
+export interface MetadataResponse {
+  items: Dag[];
+  total_count: {
+    total_records: number;
+    failed: number;
+    in_progress: number;
+    paused: number;
+    inactive: number;
+  };
 }
 
 

@@ -1,3 +1,14 @@
+"""Persistence for the date-only management contract."""
+
+from __future__ import annotations
+
+from datetime import UTC, date, datetime
+
+from sqlalchemy import (
+    CHAR,
+    DateTime,
+    ForeignKey,
+    Identity,
     String,
     delete,
     func,
@@ -157,3 +168,7 @@ class ManagedCalendarRepository:
                 resource_type="CALENDAR",
                 resource_name=calendar.calendar_name,
                 action=action,
+                performed_by=actor,
+            )
+        )
+        await self.session.commit()

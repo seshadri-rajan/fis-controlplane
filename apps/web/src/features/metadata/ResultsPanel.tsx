@@ -41,6 +41,7 @@ interface ColumnFilters {
     businessUnit: string;
     startTime: string;
     duration: string;
+    criticality: string;
 }
 
 const initialFilters: ColumnFilters = {
@@ -50,7 +51,8 @@ const initialFilters: ColumnFilters = {
     taskStatus: "",
     businessUnit: "",
     startTime: "",
-    duration: ""
+    duration: "",
+    criticality: ""
 };
 
 // ==========================================
@@ -990,9 +992,16 @@ export default function ResultsPanel({
                 filters.duration.toLowerCase()
             );
 
+        const matchesCriticality =
+            !filters.criticality ||
+            String(item.criticality ?? "")
+                .toLowerCase()
+                .includes(filters.criticality.toLowerCase());
+
         return (
             matchesStatus &&
             matchesDagName &&
+            matchesCriticality &&
             matchesTaskName &&
             matchesTaskStatus &&
             matchesBusinessUnit &&
@@ -1265,6 +1274,7 @@ export default function ResultsPanel({
                                     {[
                                         { label: "DAG STATUS", key: "status" },
                                         { label: "DAG NAME", key: "name" },
+                                        { label: "Criticality", key: "criticality" },
                                         { label: "TASK NAME", key: "dagTaskName" },
                                         { label: "TASK STATUS", key: "dagTaskStatus" },
                                         { label: "BUSINESS UNIT", key: "businessUnit" },
@@ -1372,7 +1382,22 @@ export default function ResultsPanel({
                                     </th>
 
                                     {/* TASK NAME FILTER */}
+                                    <th className="px-2 py-2">
 
+                                        <input
+                                            type="text"
+                                            value={filters.criticality}
+                                            onChange={e =>
+                                                handleFilterChange(
+                                                    "criticality",
+                                                    e.target.value
+                                                )
+                                            }
+                                            placeholder="Search Criticality..."
+                                            className="w-full min-w-0 border border-slate-300 rounded-md px-2 py-2 text-xs font-normal outline-none focus:ring-2 focus:ring-indigo-400"
+                                        />
+
+                                    </th>
                                     <th className="px-2 py-2">
 
                                         <input
@@ -1535,6 +1560,9 @@ export default function ResultsPanel({
                                                     {item.name}
                                                 </button>
 
+                                            </td>
+                                            <td className="px-2 py-3 text-xs text-slate-600 truncate">
+                                                {item.criticality}
                                             </td>
 
                                             {/* TASK NAME */}

@@ -3,61 +3,88 @@ import type { Dag, Task } from "./types";
 import type { DagRun, RunTask, TaskRunHistory, TaskDetails, DagDependencies } from "./types";
 
 export const dummyData: Dag[] = [
-  { id: 1, status: "Success", name: "DAG_1", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-01 12:34", duration: "45m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN001", applicationId: "1", endTime: "2026-10-01 13:19" },
-  { id: 2, status: "Failed", name: "DAG_2", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-03 09:45", duration: "47m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN002", applicationId: "2", endTime: "2026-10-03 10:32" },
-  { id: 15, status: "In Progress", name: "DAG_15", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-15 14:34", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN015", applicationId: "3", endTime: "-" },
-  { id: 16, status: "Paused", name: "DAG_16", dagTaskName: "", dagTaskStatus: "", businessUnit: "LAB", date: "-", duration: "-", owner: "Test2", startedBy: "DTst1233", runId: "RUN016", applicationId: "12342225", endTime: "-" },
-  { id: 17, status: "Inactive", name: "DAG_17", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "-", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN017", applicationId: "21211", endTime: "-" },
-  { id: 18, status: "Paused", name: "DAG_18", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN018", applicationId: "123432325", endTime: "-" },
-  { id: 3, status: "Success", name: "DAG_3", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-05 08:15", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN003", applicationId: "1234221", endTime: "2026-10-05 09:10" },
-  { id: 4, status: "Failed", name: "DAG_4", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-07 07:56", duration: "35m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN004", applicationId: "1343432345", endTime: "2026-10-07 08:31" },
-  { id: 5, status: "Success", name: "DAG_5", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-09 20:30", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN005", applicationId: "121213345", endTime: "2026-10-09 21:25" },
-  { id: 6, status: "Failed", name: "DAG_6", dagTaskName: "", dagTaskStatus: "", businessUnit: "LAB", date: "2026-10-11 15:20", duration: "25m 12s", owner: "Test2", startedBy: "DTst1233", runId: "RUN006", applicationId: "33432", endTime: "2026-10-11 15:45" },
-  { id: 7, status: "Success", name: "DAG_7", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-12 13:40", duration: "25m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN007", applicationId: "321212345", endTime: "2026-10-12 14:05" },
-  { id: 8, status: "Failed", name: "DAG_8", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-14 15:43", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN008", applicationId: "2", endTime: "2026-10-14 16:28" },
-  { id: 9, status: "Success", name: "DAG_9", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-16 18:40", duration: "54m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN009", applicationId: "122345", endTime: "2026-10-16 19:34" },
-  { id: 10, status: "Failed", name: "DAG_10", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" },
-  { id: 11, status: "Success", name: "DAG_11", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" },
-  { id: 12, status: "Success", name: "DAG_12", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" },
-  { id: 13, status: "Success", name: "DAG_13", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" },
-  { id: 14, status: "Failed", name: "DAG_14", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" },
-  { id: 19, status: "Inactive", name: "DAG_19", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" },
-  { id: 20, status: "Failed", name: "DAG_20", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" },
-  { id: 21, status: "Success", name: "DAG_21", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" },
-  { id: 22, status: "Success", name: "DAG_22", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" },
-  { id: 23, status: "Success", name: "DAG_23", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" },
-  { id: 24, status: "Failed", name: "DAG_24", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" },
-  { id: 25, status: "Inactive", name: "DAG_25", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" },
-  { id: 26, status: "Failed", name: "DAG1_12", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" },
-  { id: 27, status: "Inactive", name: "DAG1_131", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" }
+  { id: 1, status: "Success", name: "DAG1_11", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-01 12:34", duration: "45m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN001", applicationId: "1", endTime: "2026-10-01 13:19",criticality:"High" },
+  { id: 2, status: "Failed", name: "DAG1_12", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-03 09:45", duration: "47m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN002", applicationId: "2", endTime: "2026-10-03 10:32",criticality:"High" },
+  { id: 15, status: "In Progress", name: "DAG1_115", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-15 14:34", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN015", applicationId: "3", endTime: "-" ,criticality:"Low"},
+  { id: 16, status: "Paused", name: "DAG1_116", dagTaskName: "", dagTaskStatus: "", businessUnit: "LAB", date: "-", duration: "-", owner: "Test2", startedBy: "DTst1233", runId: "RUN016", applicationId: "12342225", endTime: "-" ,criticality:"Medium"},
+  {
+    id: 17, status: "Inactive", name: "DAG1_117", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "-", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN017", applicationId: "21211", endTime: "-", criticality: "Low",
+    source: "",
+    dag_id: "",
+    business_unit: "",
+    task_id: "",
+    task_status: "",
+    metadata: {
+      slo: "",
+      category: "",
+      severity: "",
+      critical_path: "",
+      support_group: "",
+      application_id: "",
+      bundel_name: ""
+    },
+    latest_run: {
+      run_id: "",
+      state: "",
+      logical_date: "",
+      start_date: "",
+      end_date: "",
+      elapsed_time: "",
+      business_date: "",
+      next_run: ""
+    }
+  },
+  { id: 18, status: "Paused", name: "DAG1_118", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN018", applicationId: "123432325", endTime: "-" ,criticality:"High"},
+  { id: 3, status: "Success", name: "DAG1_13", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-05 08:15", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN003", applicationId: "1234221", endTime: "2026-10-05 09:10",criticality:"Medium" },
+  { id: 4, status: "Failed", name: "DAG1_14", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-07 07:56", duration: "35m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN004", applicationId: "1343432345", endTime: "2026-10-07 08:31" ,criticality:"Low"},
+  { id: 5, status: "Success", name: "DAG1_15", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-09 20:30", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN005", applicationId: "121213345", endTime: "2026-10-09 21:25",criticality:"Low" },
+  { id: 6, status: "Failed", name: "DAG1_16", dagTaskName: "", dagTaskStatus: "", businessUnit: "LAB", date: "2026-10-11 15:20", duration: "25m 12s", owner: "Test2", startedBy: "DTst1233", runId: "RUN006", applicationId: "33432", endTime: "2026-10-11 15:45" ,criticality:"Low"},
+  { id: 7, status: "Success", name: "DAG1_17", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-12 13:40", duration: "25m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN007", applicationId: "321212345", endTime: "2026-10-12 14:05" ,criticality:"Medium"},
+  { id: 8, status: "Failed", name: "DAG1_18", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-14 15:43", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN008", applicationId: "2", endTime: "2026-10-14 16:28" ,criticality:"Low"},
+  { id: 9, status: "Success", name: "DAG1_19", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-16 18:40", duration: "54m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN009", applicationId: "122345", endTime: "2026-10-16 19:34" ,criticality:"High"},
+  { id: 10, status: "Failed", name: "DAG1_110", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25",criticality:"Low" },
+  { id: 11, status: "Success", name: "DAG1_111", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" ,criticality:"Low"},
+  { id: 12, status: "Success", name: "DAG1_112", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" ,criticality:"High"},
+  { id: 13, status: "Success", name: "DAG1_113", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" ,criticality:"Low"},
+  { id: 14, status: "Failed", name: "DAG1_114", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" ,criticality:"Low"},
+  { id: 19, status: "Inactive", name: "DAG1_119", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" ,criticality:"Medium"},
+  { id: 20, status: "Failed", name: "DAG1_120", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" ,criticality:"Low"},
+  { id: 21, status: "Success", name: "DAG1_121", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" ,criticality:"Low"},
+  { id: 22, status: "Success", name: "DAG1_122", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05",criticality:"Medium" },
+  { id: 23, status: "Success", name: "DAG1_123", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" ,criticality:"Low"},
+  { id: 24, status: "Failed", name: "DAG1_124", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" ,criticality:"Medium"},
+  { id: 25, status: "Inactive", name: "DAG1_125", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" ,criticality:"Low"},
+  { id: 26, status: "Failed", name: "DAG1_12", dagTaskName: "", dagTaskStatus: "", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" ,criticality:"Medium"},
+  { id: 27, status: "Inactive", name: "DAG1_131", dagTaskName: "", dagTaskStatus: "", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" ,criticality:"Medium"}
+
 ];
 
 export const dummyDagTaskData: Dag[] = [
-  { id: 1, status: "Success", name: "DAG_1", dagTaskName: "Task1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-01 12:34", duration: "45m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN001", applicationId: "1", endTime: "2026-10-01 13:19" },
-  { id: 2, status: "Failed", name: "DAG_2", dagTaskName: "Task1", dagTaskStatus: "Failed", businessUnit: "AMT", date: "2026-10-03 09:45", duration: "47m 12s", owner: "Test", startedBy: "Tst1233", runId: "RUN002", applicationId: "2", endTime: "2026-10-03 10:32" },
-  { id: 15, status: "In Progress", name: "DAG_15", dagTaskName: "Task1", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-15 14:34", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN015", applicationId: "3", endTime: "-" },
-  { id: 16, status: "Paused", name: "DAG_16", dagTaskName: "Task3", dagTaskStatus: "Failed", businessUnit: "LAB", date: "-", duration: "-", owner: "Test2", startedBy: "DTst1233", runId: "RUN016", applicationId: "4", endTime: "-" },
-  { id: 17, status: "Inactive", name: "DAG_17", dagTaskName: "Task1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "-", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN017", applicationId: "5", endTime: "-" },
-  { id: 18, status: "Paused", name: "DAG_18", dagTaskName: "Task1", dagTaskStatus: "Up For Retry", businessUnit: "FFIO", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN018", applicationId: "12345", endTime: "-" },
-  { id: 3, status: "Success", name: "DAG_3", dagTaskName: "", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-05 08:15", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN003", applicationId: "12345", endTime: "2026-10-05 09:10" },
-  { id: 4, status: "Failed", name: "DAG_4", dagTaskName: "Task1", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-07 07:56", duration: "35m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN004", applicationId: "12345", endTime: "2026-10-07 08:31" },
-  { id: 5, status: "Success", name: "DAG_5", dagTaskName: "Task5", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-09 20:30", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN005", applicationId: "12345", endTime: "2026-10-09 21:25" },
-  { id: 6, status: "Failed", name: "DAG_6", dagTaskName: "Task2", dagTaskStatus: "Up For Retry", businessUnit: "LAB", date: "2026-10-11 15:20", duration: "25m 12s", owner: "Test2", startedBy: "DTst1233", runId: "RUN006", applicationId: "12345", endTime: "2026-10-11 15:45" },
-  { id: 7, status: "Success", name: "DAG_7", dagTaskName: "Task1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-12 13:40", duration: "25m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN007", applicationId: "12345", endTime: "2026-10-12 14:05" },
-  { id: 8, status: "Failed", name: "DAG_8", dagTaskName: "Task6", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-14 15:43", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN008", applicationId: "12345", endTime: "2026-10-14 16:28" },
-  { id: 9, status: "Success", name: "DAG_9", dagTaskName: "Task7", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-16 18:40", duration: "54m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN009", applicationId: "12345", endTime: "2026-10-16 19:34" },
-  { id: 10, status: "Failed", name: "DAG_10", dagTaskName: "Task8", dagTaskStatus: "Skipped", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" },
-  { id: 11, status: "Success", name: "DAG_11", dagTaskName: "Task8", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" },
-  { id: 12, status: "Success", name: "DAG_12", dagTaskName: "Task10", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" },
-  { id: 13, status: "Success", name: "DAG_13", dagTaskName: "Task11", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" },
-  { id: 14, status: "Failed", name: "DAG_14", dagTaskName: "Task12", dagTaskStatus: "Skipped", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" },
-  { id: 19, status: "Inactive", name: "DAG_19", dagTaskName: "Task13", dagTaskStatus: "Success", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" },
-  { id: 20, status: "Failed", name: "DAG_20", dagTaskName: "Task8", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" },
-  { id: 21, status: "Success", name: "DAG_21", dagTaskName: "Task9", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" },
-  { id: 22, status: "Success", name: "DAG_22", dagTaskName: "Task10", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" },
-  { id: 23, status: "Success", name: "DAG_23", dagTaskName: "Task11", dagTaskStatus: "Skipped", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" },
-  { id: 24, status: "Failed", name: "DAG_24", dagTaskName: "Task12", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" },
-  { id: 25, status: "Inactive", name: "DAG_25", dagTaskName: "Task13", dagTaskStatus: "Running", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" }
+  { id: 1, status: "Success", name: "DAG1_11", dagTaskName: "Taskt1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-01 12:34", duration: "45m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN001", applicationId: "1", endTime: "2026-10-01 13:19",criticality:"Medium" },
+  { id: 2, status: "Failed", name: "DAG1_12", dagTaskName: "Taskt1", dagTaskStatus: "Failed", businessUnit: "AMT", date: "2026-10-03 09:45", duration: "47m 12s", owner: "Test", startedBy: "Tst1233", runId: "RUN002", applicationId: "2", endTime: "2026-10-03 10:32",criticality:"Low" },
+  { id: 15, status: "In Progress", name: "DAG1_115", dagTaskName: "Taskt1", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-15 14:34", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN015", applicationId: "3", endTime: "-" ,criticality:"Medium"},
+  { id: 16, status: "Paused", name: "DAG1_116", dagTaskName: "Taskt3", dagTaskStatus: "Failed", businessUnit: "LAB", date: "-", duration: "-", owner: "Test2", startedBy: "DTst1233", runId: "RUN016", applicationId: "4", endTime: "-" ,criticality:"Medium"},
+  { id: 17, status: "Inactive", name: "DAG1_117", dagTaskName: "Taskt1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "-", duration: "-", owner: "TEST", startedBy: "Tst1233", runId: "RUN017", applicationId: "5", endTime: "-",criticality:"Medium"},
+  { id: 18, status: "Paused", name: "DAG1_118", dagTaskName: "Taskt1", dagTaskStatus: "Up For Retry", businessUnit: "FFIO", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN018", applicationId: "12345", endTime: "-" ,criticality:"Medium"},
+  { id: 3, status: "Success", name: "DAG1_13", dagTaskName: "", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-05 08:15", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN003", applicationId: "12345", endTime: "2026-10-05 09:10" ,criticality:"Low"},
+  { id: 4, status: "Failed", name: "DAG1_14", dagTaskName: "Taskt1", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-07 07:56", duration: "35m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN004", applicationId: "12345", endTime: "2026-10-07 08:31" ,criticality:"Medium"},
+  { id: 5, status: "Success", name: "DAG1_15", dagTaskName: "Taskt5", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-09 20:30", duration: "55m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN005", applicationId: "12345", endTime: "2026-10-09 21:25",criticality:"Medium" },
+  { id: 6, status: "Failed", name: "DAG1_16", dagTaskName: "Taskt2", dagTaskStatus: "Up For Retry", businessUnit: "LAB", date: "2026-10-11 15:20", duration: "25m 12s", owner: "Test2", startedBy: "DTst1233", runId: "RUN006", applicationId: "12345", endTime: "2026-10-11 15:45" ,criticality:"Medium"},
+  { id: 7, status: "Success", name: "DAG1_17", dagTaskName: "Taskt1", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-12 13:40", duration: "25m 12s", owner: "TEST", startedBy: "Tst1233", runId: "RUN007", applicationId: "12345", endTime: "2026-10-12 14:05",criticality:"Medium" },
+  { id: 8, status: "Failed", name: "DAG1_18", dagTaskName: "Taskt6", dagTaskStatus: "Upstream Failed", businessUnit: "FFIO", date: "2026-10-14 15:43", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN008", applicationId: "12345", endTime: "2026-10-14 16:28" ,criticality:"Low"},
+  { id: 9, status: "Success", name: "DAG1_19", dagTaskName: "Taskt7", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-16 18:40", duration: "54m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN009", applicationId: "12345", endTime: "2026-10-16 19:34" ,criticality:"Medium"},
+  { id: 10, status: "Failed", name: "DAG1_110", dagTaskName: "Taskt8", dagTaskStatus: "Skipped", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25" ,criticality:"Medium"},
+  { id: 11, status: "Success", name: "DAG1_111", dagTaskName: "Taskt8", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08" ,criticality:"Medium"},
+  { id: 12, status: "Success", name: "DAG1_112", dagTaskName: "Taskt10", dagTaskStatus: "Success", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" ,criticality:"Medium"},
+  { id: 13, status: "Success", name: "DAG1_113", dagTaskName: "Taskt11", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" ,criticality:"Low"},
+  { id: 14, status: "Failed", name: "DAG1_114", dagTaskName: "Taskt12", dagTaskStatus: "Skipped", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" ,criticality:"Medium"},
+  { id: 19, status: "Inactive", name: "DAG1_119", dagTaskName: "Taskt13", dagTaskStatus: "Success", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-",criticality:"Medium" },
+  { id: 20, status: "Failed", name: "DAG1_120", dagTaskName: "Taskt8", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-18 17:10", duration: "15m 12s", owner: "TEST", startedBy: "JTst1233h", runId: "RUN010", applicationId: "12345", endTime: "2026-10-18 17:25",criticality:"Medium" },
+  { id: 21, status: "Success", name: "DAG1_121", dagTaskName: "Taskt9", dagTaskStatus: "Success", businessUnit: "AMT", date: "2026-10-19 03:03", duration: "65m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN011", applicationId: "12345", endTime: "2026-10-19 04:08",criticality:"Medium" },
+  { id: 22, status: "Success", name: "DAG1_122", dagTaskName: "Taskt10", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-20 08:20", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN012", applicationId: "12345", endTime: "2026-10-20 09:05" ,criticality:"Low"},
+  { id: 23, status: "Success", name: "DAG1_123", dagTaskName: "Taskt11", dagTaskStatus: "Skipped", businessUnit: "AMT", date: "2026-10-04 13:58", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN013", applicationId: "12345", endTime: "2026-10-04 14:43" ,criticality:"Medium"},
+  { id: 24, status: "Failed", name: "DAG1_124", dagTaskName: "Taskt12", dagTaskStatus: "Running", businessUnit: "FFIO", date: "2026-10-08 12:00", duration: "45m 12s", owner: "Test2", startedBy: "Tst1233", runId: "RUN014", applicationId: "12345", endTime: "2026-10-08 12:45" ,criticality:"Medium"},
+  { id: 25, status: "Inactive", name: "DAG1_125", dagTaskName: "Taskt13", dagTaskStatus: "Running", businessUnit: "AMT", date: "-", duration: "-", owner: "Test2", startedBy: "Tst1233", runId: "RUN019", applicationId: "12345", endTime: "-" ,criticality:"Medium"}
 
 ];
 
@@ -147,7 +174,7 @@ export const runHistoryData: Record<number, DagRun[]> = {
       dagId: 1,
       runId: "RUN020",
       status: "Failed",
-      name: "DAG1",
+      name: "DAG_1",
       class: "Unit A",
       date: "2026-09-30 10:20",
       duration: "25m 10s",
@@ -333,8 +360,8 @@ Object.keys(runTaskData).forEach((runId) => {
 
 export const taskDetailsData: Record<string, TaskDetails> = {
 
-  "DAG_1_Task_1": {
-    task_id: "DAG_1_Task_1",
+  "DAG1_11_Task_1": {
+    task_id: "DAG1_11_Task_1",
     command: "python /opt/airflow/scripts/customer_etl.py",
     profile: "PROD_CUSTOMER_PROFILE",
     hostname: "airflow-worker-01",
@@ -349,8 +376,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     supportGroup: "ffio_prdsvcs_perform"
   },
 
-  "DAG_1_Task_2": {
-    task_id: "DAG_1_Task_2",
+  "DAG1_11_Task_2": {
+    task_id: "DAG1_11_Task_2",
     command: "spark-submit /opt/spark/scripts/sales_etl.py",
     profile: "PROD_SALES_PROFILE",
     hostname: "spark-worker-02",
@@ -365,8 +392,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     supportGroup: "ffio_prdsvcs_perform"
   },
 
-  "DAG_1_Task_3": {
-    task_id: "DAG_1_Task_3",
+  "DAG1_11_Task_3": {
+    task_id: "DAG1_11_Task_3",
     command: "bash /opt/airflow/scripts/inventory.sh",
     profile: "INVENTORY_PROFILE",
     hostname: "airflow-worker-03",
@@ -381,8 +408,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     supportGroup: "ffio_prdsvcs_perform"
   },
 
-  "DAG_1_Task_4": {
-    task_id: "DAG_1_Task_4",
+  "DAG1_11_Task_4": {
+    task_id: "DAG1_11_Task_4",
     command: "python /opt/airflow/scripts/payment_validation.py",
     profile: "PAYMENT_PROFILE",
     hostname: "airflow-worker-04",
@@ -397,8 +424,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     supportGroup: "ffio_prdsvcs_perform"
   },
 
-  "DAG_1_Task_5": {
-    task_id: "DAG_1_Task_5",
+  "DAG1_11_Task_5": {
+    task_id: "DAG1_11_Task_5",
     command: "sqlplus / as sysdba @daily_report.sql",
     profile: "ORACLE_PROD_PROFILE",
     hostname: "oracle-server-01",
@@ -412,8 +439,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     severity: "4M",
     supportGroup: "ffio_prdsvcs_perform"
   },
-  "DAG_5_Task_1": {
-    task_id: "DAG_5_Task_1",
+  "DAG1_15_Task_1": {
+    task_id: "DAG1_15_Task_1",
     command: "sqlplus / as sysdba @daily_report.sql",
     profile: "ORACLE_PROD_PROFILE",
     hostname: "oracle-server-01",
@@ -427,8 +454,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     severity: "4M",
     supportGroup: "ffio_prdsvcs_perform"
   },
-  "DAG_6_Task_1": {
-    task_id: "DAG_6_Task_1",
+  "DAG1_16_Task_1": {
+    task_id: "DAG1_16_Task_1",
     command: "sqlplus / as sysdba @daily_report.sql",
     profile: "ORACLE_PROD_PROFILE",
     hostname: "oracle-server-01",
@@ -442,8 +469,8 @@ export const taskDetailsData: Record<string, TaskDetails> = {
     severity: "4M",
     supportGroup: "ffio_prdsvcs_perform"
   },
-  "DAG_4_Task_1": {
-    task_id: "DAG_4_Task_1",
+  "DAG1_14_Task_1": {
+    task_id: "DAG1_14_Task_1",
     command: "sqlplus / as sysdba @daily_report.sql",
     profile: "ORACLE_PROD_PROFILE",
     hostname: "oracle-server-01",
@@ -467,65 +494,65 @@ export const dagDependencyData: Record<string, DagDependencies> = {
   "1": {
     upstream: [
       { source: "AM", dag_id: null, task_ids: ["Task1issprf_pce_rimes_index_stg_ld", "Taskissprf_pce_rimes_index_stg_ld2", "issprf_pce_rimes_index_stg_ldTask3", "Tasissprf_pce_rimes_index_stg_ldk1", "Tasissprf_pce_rimes_index_stg_ldk3", "Tissprf_pce_rimes_index_stg_ldask2", "Tasissprf_pce_rimes_index_stg_ldk1", "issprf_pce_rimes_index_stg_ld", "issprf_pce_rimes_index_stg_ld", "Taissprf_pce_rimes_index_stg_ldsk1", "Taissprf_pce_rimes_index_stg_ldsk3", "Taskissprf_pce_rimes_index_stg_ld2", "Taskissprf_pce_rimes_index_stg_ld1", "Tissprf_pce_rimes_index_stg_ldask3", "Taissprf_pce_rimes_index_stg_ldsk2", "issprf_pce_rimes_index_stg_ldTask1", "Task3issprf_pce_rimes_index_stg_ld", "Taskissprf_pce_rimes_index_stg_ld2", "Tasissprf_pce_rimes_index_stg_ldk1", "Taissprf_pce_rimes_index_stg_ldsk3", "Taissprf_pce_rimes_index_stg_ldsk2"] },
-      { source: "ETL", dag_id: "parent_dag_1", task_ids: ["Task5", "Task6"] },
-      { source: "AM", dag_id: "parent_dag_1", task_ids: ["Task1", "Task3", "Task2", "Task1", "Task3", "Task2", "Task1", "Task3", "Task2"] }
+      { source: "ETL", dag_id: "parent_DAG1_11", task_ids: ["Task5", "Task6"] },
+      { source: "AM", dag_id: "parent_DAG1_11", task_ids: ["Task1", "Task3", "Task2", "Task1", "Task3", "Task2", "Task1", "Task3", "Task2"] }
     ],
     downstream: [
-      { source: "AM", dag_id: "child_dag_2", task_ids: ["Task7", "Task8", "Task9"] },
-      { source: "ETL", dag_id: "child_dag_3", task_ids: ["Task10", "Task11"] }
+      { source: "AM", dag_id: "child_DAG1_12", task_ids: ["Task7", "Task8", "Task9"] },
+      { source: "ETL", dag_id: "child_DAG1_13", task_ids: ["Task10", "Task11"] }
     ]
   },
 
   "2": {
     upstream: [
-      { source: "AM", dag_id: "parent_dag_1", task_ids: ["Task1", "Task3", "Task2"] },
-      { source: "ETL", dag_id: "parent_dag_2", task_ids: ["Task1", "Task3"] }
+      { source: "AM", dag_id: "parent_DAG1_11", task_ids: ["Task1", "Task3", "Task2"] },
+      { source: "ETL", dag_id: "parent_DAG1_12", task_ids: ["Task1", "Task3"] }
     ],
     downstream: [
-      { source: "AM", dag_id: "child_dag_4", task_ids: ["Task7", "Task9"] },
-      { source: "ETL", dag_id: "child_dag_5", task_ids: ["Task7", "Task8", "Task9"] }
+      { source: "AM", dag_id: "child_DAG1_14", task_ids: ["Task7", "Task9"] },
+      { source: "ETL", dag_id: "child_DAG1_15", task_ids: ["Task7", "Task8", "Task9"] }
     ]
   },
 
   "3": {
     upstream: [
-      { source: "AM", dag_id: "source_dag_1", task_ids: ["Task3", "Task2"] },
-      { source: "DB", dag_id: "source_dag_2", task_ids: ["Task7", "Task8"] }
+      { source: "AM", dag_id: "source_DAG1_11", task_ids: ["Task3", "Task2"] },
+      { source: "DB", dag_id: "source_DAG1_12", task_ids: ["Task7", "Task8"] }
     ],
     downstream: [
-      { source: "AM", dag_id: "child_dag_6", task_ids: ["Task10", "Task7"] },
-      { source: "DB", dag_id: "child_dag_7", task_ids: ["Task7", "Task8"] }
+      { source: "AM", dag_id: "child_DAG1_16", task_ids: ["Task10", "Task7"] },
+      { source: "DB", dag_id: "child_DAG1_17", task_ids: ["Task7", "Task8"] }
     ]
   },
 
   "4": {
     upstream: [
-      { source: "ETL", dag_id: "parent_dag_3", task_ids: ["Task1", "Task3", "Task7"] },
+      { source: "ETL", dag_id: "parent_DAG1_13", task_ids: ["Task1", "Task3", "Task7"] },
       { source: "AM", dag_id: null, task_ids: ["Task7", "Task6"] }
     ],
     downstream: [
-      { source: "ETL", dag_id: "child_dag_8", task_ids: ["Task7", "Task2", "Task9"] },
-      { source: "AM", dag_id: "child_dag_9", task_ids: ["Task7"] }
+      { source: "ETL", dag_id: "child_DAG1_18", task_ids: ["Task7", "Task2", "Task9"] },
+      { source: "AM", dag_id: "child_DAG1_19", task_ids: ["Task7"] }
     ]
   },
 
   "5": {
     upstream: [
-      { source: "DB", dag_id: "source_dag_3", task_ids: ["Task7", "Task9"] },
-      { source: "AM", dag_id: "source_dag_4", task_ids: ["Task1", "Task7"] }
+      { source: "DB", dag_id: "source_DAG1_13", task_ids: ["Task7", "Task9"] },
+      { source: "AM", dag_id: "source_DAG1_14", task_ids: ["Task1", "Task7"] }
     ],
     downstream: [
-      { source: "DB", dag_id: "child_dag_10", task_ids: ["Task7", "Task1", "Task3"] },
-      { source: "AM", dag_id: "child_dag_11", task_ids: ["Task8", "Task9"] }
+      { source: "DB", dag_id: "child_DAG1_110", task_ids: ["Task7", "Task1", "Task3"] },
+      { source: "AM", dag_id: "child_DAG1_111", task_ids: ["Task8", "Task9"] }
     ]
   },
 
   "6": {
     upstream: [
-      { source: "AM", dag_id: "parent_dag_4", task_ids: ["Task3", "Task10", "Task2"] },
+      { source: "AM", dag_id: "parent_DAG1_14", task_ids: ["Task3", "Task10", "Task2"] },
     ],
     downstream: [
-      { source: "AM", dag_id: "child_dag_12", task_ids: ["Task8", "Task11"] },
+      { source: "AM", dag_id: "child_DAG1_112", task_ids: ["Task8", "Task11"] },
       { source: "API", dag_id: "api_child_1", task_ids: ["Task7", "Task8"] }
     ]
   }
